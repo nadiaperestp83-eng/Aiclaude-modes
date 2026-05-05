@@ -169,19 +169,13 @@ This installs globally (available in all projects). Toggle on/off with `/plugin`
 
 ### Script Install
 
-**Linux/macOS:**
 ```bash
 git clone https://github.com/0xDarkMatter/claude-mods.git
 cd claude-mods
-./scripts/install.sh
+bash scripts/install.sh
 ```
 
-**Windows (PowerShell):**
-```powershell
-git clone https://github.com/0xDarkMatter/claude-mods.git
-cd claude-mods
-.\scripts\install.ps1
-```
+Works on Linux, macOS, and Windows (Git Bash). A PowerShell alternative is also available at `scripts/install.ps1`.
 
 The install scripts:
 - Copy commands, skills, agents, rules, output styles to `~/.claude/`

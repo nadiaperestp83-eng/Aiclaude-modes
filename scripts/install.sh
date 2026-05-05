@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 #
-# claude-mods Installer (Linux/macOS)
+# claude-mods Installer (Linux / macOS / Windows Git Bash)
 # Copies commands, skills, agents, and rules to ~/.claude/
 # Handles cleanup of deprecated items and command-to-skill migrations.
 #
-# Usage: ./scripts/install.sh
+# Usage:
+#   Linux/macOS:       ./scripts/install.sh
+#   Windows Git Bash:  bash scripts/install.sh
 
 set -e
 
@@ -15,13 +17,24 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 echo -e "${BLUE}╔══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║           claude-mods Installer (Unix)                       ║${NC}"
+echo -e "${BLUE}║     claude-mods Installer (Linux / macOS / Git Bash)         ║${NC}"
 echo -e "${BLUE}╚══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 CLAUDE_DIR="$HOME/.claude"
+
+# Detect Windows (Git Bash / MINGW / MSYS) — chmod is a no-op on NTFS
+IS_WINDOWS=false
+case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*) IS_WINDOWS=true ;;
+esac
+
+# Wrapper: chmod is meaningful only on Unix
+make_executable() {
+    $IS_WINDOWS || chmod +x "$1"
+}
 
 # Ensure ~/.claude directories exist
 for dir in commands skills agents rules output-styles; do
@@ -179,12 +192,12 @@ fi
 mkdir -p "$CLAUDE_DIR/pigeon"
 if [ -f "$PROJECT_ROOT/skills/pigeon/scripts/mail-db.sh" ]; then
     cp "$PROJECT_ROOT/skills/pigeon/scripts/mail-db.sh" "$CLAUDE_DIR/pigeon/"
-    chmod +x "$CLAUDE_DIR/pigeon/mail-db.sh"
+    make_executable "$CLAUDE_DIR/pigeon/mail-db.sh"
     echo -e "  ${GREEN}mail-db.sh${NC}"
 fi
 if [ -f "$PROJECT_ROOT/hooks/check-mail.sh" ]; then
     cp "$PROJECT_ROOT/hooks/check-mail.sh" "$CLAUDE_DIR/pigeon/"
-    chmod +x "$CLAUDE_DIR/pigeon/check-mail.sh"
+    make_executable "$CLAUDE_DIR/pigeon/check-mail.sh"
     echo -e "  ${GREEN}check-mail.sh${NC}"
 fi
 
@@ -225,7 +238,7 @@ mkdir -p "$CLAUDE_DIR/auto-skill"
 for script in track-tools.sh evaluate.sh; do
     if [ -f "$PROJECT_ROOT/skills/auto-skill/scripts/$script" ]; then
         cp "$PROJECT_ROOT/skills/auto-skill/scripts/$script" "$CLAUDE_DIR/auto-skill/"
-        chmod +x "$CLAUDE_DIR/auto-skill/$script"
+        make_executable "$CLAUDE_DIR/auto-skill/$script"
         echo -e "  ${GREEN}$script${NC}"
     fi
 done
