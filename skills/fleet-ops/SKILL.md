@@ -27,7 +27,7 @@ The skill doesn't care if there are 2 lanes or 20, doesn't care about branch nam
 fleet init <name>...        Create branch + worktree per name
 fleet start                 Run the daemon (writes pid to .claude/fleet/daemon.pid)
 fleet stop                  Signal the running daemon to exit cleanly
-fleet fleet                 One-shot status view
+fleet status                One-shot status view
 fleet land <branch>         Manual land + rebase others
 fleet revert <branch>       Revert merge commit on main
 fleet scrub-check <branch>  Dry-run forbidden-pattern check

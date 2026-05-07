@@ -46,7 +46,7 @@ Polls `.claude/fleet/lanes/` every 5 seconds. When a lane shows `READY`:
 ### 4. Watch
 
 ```bash
-fleet fleet
+fleet status
 ```
 
 ```

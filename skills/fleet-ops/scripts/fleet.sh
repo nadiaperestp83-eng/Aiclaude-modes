@@ -634,7 +634,7 @@ case "${1:-}" in
   init)         shift; cmd_init "$@" ;;
   start)        shift; cmd_start "$@" ;;
   stop)         cmd_stop ;;
-  fleet|status) shift; cmd_fleet "$@" ;;
+  status|fleet) shift; cmd_fleet "$@" ;;
   land)         shift; cmd_land "$@" ;;
   revert)       shift; cmd_revert "$@" ;;
   scrub-check)  shift; cmd_scrub_check "$@" ;;
@@ -646,7 +646,7 @@ Usage:
   fleet init <name>...        Create branch + worktree per name
   fleet start                 Run the daemon (writes pid to $PID_FILE)
   fleet stop                  Signal the running daemon to exit cleanly
-  fleet fleet                 One-shot status view
+  fleet status                One-shot status view
   fleet land <branch>         Manual land + rebase others
   fleet revert <branch>       Revert merge commit on $BASE_BRANCH
   fleet scrub-check <branch>  Dry-run forbidden-pattern check
