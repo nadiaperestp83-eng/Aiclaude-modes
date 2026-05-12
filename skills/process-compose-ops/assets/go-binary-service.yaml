@@ -1,0 +1,34 @@
+# process-compose.yaml — Go binary service
+#
+# Pattern: Fast-startup Go service with TCP probe.
+# Use HTTP probe if it serves HTTP; tcp_socket is the fallback for
+# protocols that aren't HTTP.
+
+version: "0.5"
+
+processes:
+
+  mysvc:
+    command: "X:/path/to/mysvc/bin/mysvc.exe serve"
+    working_dir: "X:/path/to/mysvc"
+
+    readiness_probe:
+      http_get:                  # Use http_get if the service is HTTP
+        host: localhost
+        port: 8080
+        path: /
+      # OR for non-HTTP protocols:
+      # tcp_socket:
+      #   host: localhost
+      #   port: 5432
+      initial_delay_seconds: 1   # Go services usually come up in < 1s
+      period_seconds: 5
+      timeout_seconds: 3
+      failure_threshold: 3
+
+    availability:
+      restart: always
+      backoff_seconds: 10
+      max_restarts: 10
+
+    log_location: "logs/mysvc.log"

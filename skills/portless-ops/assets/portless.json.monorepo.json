@@ -1,0 +1,17 @@
+{
+  "_comment_purpose": "Monorepo portless.json — runs all workspace packages with name overrides",
+  "_comment_usage": "Drop in monorepo root. Each apps/<pkg> with its own dev script gets a URL.",
+
+  "_comment_default_naming": "Without an apps map, hostnames are <pkg>.<project>.<tld>",
+  "_comment_explicit_naming": "With apps map, exact name as written. Keys are relative paths.",
+
+  "apps": {
+    "apps/web": { "name": "myapp" },
+    "apps/api": { "name": "api.myapp" },
+    "apps/docs": { "name": "docs.myapp", "script": "dev:docs" }
+  },
+
+  "_optional_turbo": true,
+
+  "_strip_underscored_keys_before_using": "remove all keys starting with underscore before committing"
+}

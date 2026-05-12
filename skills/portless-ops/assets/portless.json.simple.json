@@ -1,0 +1,12 @@
+{
+  "_comment_purpose": "Single-app portless.json — name + script overrides for one project",
+  "_comment_usage": "Drop in repo root. portless picks it up automatically.",
+
+  "name": "myapp",
+
+  "_optional_script": "dev",
+  "_optional_appPort": 4123,
+  "_optional_proxy": true,
+
+  "_strip_underscored_keys_before_using": "remove all keys starting with underscore before committing"
+}

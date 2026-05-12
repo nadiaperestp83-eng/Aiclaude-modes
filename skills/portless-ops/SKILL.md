@@ -202,6 +202,26 @@ BAD:  change TLD by stopping/starting with different --tld and hoping aliases up
 GOOD: stop proxy, wipe routes.json, start with new TLD, re-register from supervisor config
 ```
 
+## Resources in this skill
+
+### `references/`
+- `upstream-portless.md` — canonical portless SKILL.md verbatim (CLI ref, monorepo, turborepo, worktrees, LAN, Tailscale, HTTPS, troubleshooting)
+- `upstream-oauth.md` — canonical OAuth setup for Google/Apple/Microsoft/Facebook/GitHub
+- `tld-selection.md` — decision tree for picking the right TLD; trade-offs of `.test`/`.dev`/`.localhost`/custom-owned
+- `windows-specifics.md` — openssl PATH, certutil quirks, curl-vs-browser cert handling, PS 5.1 gotchas
+- `integration-patterns.md` — combos with Process Compose / Docker / PM2 / Tailscale / git worktrees
+
+### `scripts/`
+- `install-portless.ps1` — verified install: inspect tarball, scan for IOCs from recent attacks, install only if clean
+- `reset-state.ps1` — clean state reset (used when changing TLD; `--remove` can't clear old-TLD aliases)
+- `sync-aliases-from-yaml.ps1` — derive portless aliases from a process-compose.yaml
+
+### `assets/`
+- `portless.json.simple.json` — single-app config template
+- `portless.json.monorepo.json` — workspace monorepo with name overrides
+- `portless.json.with-custom-tld.json` — documents TLD choice in repo
+- `package.json-portless-key.json` — alternative: portless config inside package.json
+
 ## Related Skills
 
 - `process-compose-ops` — the supervisor we pair with portless

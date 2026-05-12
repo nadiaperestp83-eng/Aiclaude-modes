@@ -1,0 +1,26 @@
+{
+  "_comment_purpose": "Example showing how to put portless config inside an existing package.json instead of a separate portless.json file",
+  "_comment_usage": "Add the 'portless' key to your existing package.json. String shorthand for just the name, object for full config.",
+
+  "name": "@myorg/myapp",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "next dev",
+    "dev:app": "next dev",
+    "build": "next build"
+  },
+
+  "_string_shorthand_example": "portless: 'myapp'",
+
+  "portless": {
+    "name": "myapp",
+    "script": "dev:app"
+  },
+
+  "_alternative_string_form": {
+    "_comment": "If you just want to set the name, use a string instead:",
+    "_example": "\"portless\": \"myapp\""
+  },
+
+  "_precedence": "CLI flags > package.json portless key > portless.json app entry > defaults"
+}

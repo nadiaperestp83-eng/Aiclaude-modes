@@ -1,0 +1,36 @@
+# process-compose.yaml — Python uvicorn/FastAPI/Django service
+#
+# Pattern: Python web service with health endpoint, always-restart, dedicated log file.
+# Copy + adapt to your stack.
+
+version: "0.5"
+
+processes:
+
+  myapp:
+    # Wrap pythonw exe path in single quotes if it contains spaces; use forward
+    # slashes inside or single-quote backslash-paths to avoid YAML escapes.
+    command: "pythonw -m uvicorn myapp.main:app --host 127.0.0.1 --port 8000"
+    working_dir: "X:/path/to/myapp"
+
+    environment:
+      - "PYTHONUNBUFFERED=1"
+      - "DJANGO_SETTINGS_MODULE=myapp.settings.local"
+      # Don't put secrets here — source from gitignored .env via boot-start wrapper
+
+    readiness_probe:
+      http_get:
+        host: localhost
+        port: 8000
+        path: /          # bare root if no /health endpoint; redirects count as healthy
+      initial_delay_seconds: 5
+      period_seconds: 10
+      timeout_seconds: 3
+      failure_threshold: 3
+
+    availability:
+      restart: always
+      backoff_seconds: 5
+      max_restarts: 20
+
+    log_location: "logs/myapp.log"

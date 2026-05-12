@@ -1,0 +1,11 @@
+{
+  "_comment_purpose": "portless.json with documented TLD choice — actual TLD is a proxy-level setting (PORTLESS_TLD env or --tld flag); this file just records the choice for the repo",
+
+  "name": "myapp",
+
+  "_tld_choice": "test",
+  "_tld_reason": "IANA-reserved (RFC 6761), OAuth-safe, no DNS collision risk",
+  "_proxy_start_command": "portless proxy start --tld test --port 443",
+
+  "_strip_underscored_keys_before_using": "remove all keys starting with underscore before committing"
+}

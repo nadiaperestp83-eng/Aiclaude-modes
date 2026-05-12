@@ -1,0 +1,48 @@
+# process-compose.yaml — Cloudflare tunnel exposing a local service
+#
+# Pattern: A web service + a Cloudflare tunnel that forwards external
+# traffic to it. The tunnel must depend on the service being HEALTHY,
+# not just started, to avoid Cloudflare seeing repeated connection
+# refused errors during service warmup.
+
+version: "0.5"
+
+processes:
+
+  internal-svc:
+    command: "myservice serve --port 8000"
+    working_dir: "X:/path/to/myservice"
+
+    readiness_probe:
+      http_get:
+        host: localhost
+        port: 8000
+        path: /
+      initial_delay_seconds: 5
+      period_seconds: 15
+      timeout_seconds: 3
+      failure_threshold: 3
+
+    availability:
+      restart: always
+      backoff_seconds: 3
+      max_restarts: 20
+
+    log_location: "logs/internal-svc.log"
+
+  tunnel:
+    # Single-quoted YAML string with embedded paths-with-spaces.
+    # Tunnel UUID + cert paths should come from a gitignored .env.
+    command: '"C:/Program Files (x86)/cloudflared/cloudflared.exe" tunnel --origincert C:/Users/me/.cloudflared/cert.pem --credentials-file C:/Users/me/.cloudflared/<TUNNEL_UUID>.json run --url http://localhost:8000 my-tunnel'
+    working_dir: "C:/Users/me/.cloudflared"
+
+    depends_on:
+      internal-svc:
+        condition: process_healthy   # Critical: don't open tunnel until service is ready
+
+    availability:
+      restart: always
+      backoff_seconds: 5
+      max_restarts: 50               # Tunnels can disconnect; allow many retries
+
+    log_location: "logs/tunnel.log"

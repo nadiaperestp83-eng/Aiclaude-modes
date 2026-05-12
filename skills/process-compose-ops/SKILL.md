@@ -287,6 +287,29 @@ BAD:  upgrade PC by running an installer (npm install -g, scoop install, brew in
 GOOD: download specific version, verify SHA-256 against upstream checksums.txt, commit binary
 ```
 
+## Resources in this skill
+
+### `references/`
+- `schema-reference.md` — full process-compose.yaml schema with field semantics, defaults, and command-quoting gotchas
+- `probe-patterns.md` — readiness probe recipes by stack (Python, Go, Node, TCP-only, daemons)
+- `dependency-patterns.md` — `depends_on` patterns: companion daemons, DB-before-app, tunnel-after-service, one-shot init
+- `tui-shortcuts.md` — TUI cheatsheet (keys, status legend, search/sort/filter)
+- `boot-persistence-windows.md` — Task Scheduler setup with S4U logon, PATH-aware wrapper
+- `supply-chain-verification.md` — full SHA-256 verification procedure for the binary
+
+### `scripts/`
+- `install-process-compose.ps1` — download + verify + extract a pinned version, writes VERIFICATION.md
+- `verify-binary.ps1` — re-verify committed binary hash (monthly / pre-commit)
+- `boot-start.template.ps1` — PATH-aware boot wrapper (copy + adapt per machine)
+- `boot-task-install.template.ps1` — Task Scheduler entry registration (S4U logon)
+
+### `assets/`
+- `python-uvicorn.yaml` — uvicorn/FastAPI/Django basic service template
+- `django-with-companions.yaml` — Django + queue daemon + audit watcher chain
+- `go-binary-service.yaml` — Go binary with HTTP or TCP probe
+- `tunnel-with-dependency.yaml` — Cloudflare tunnel waiting on its target service
+- `cron-job.yaml` — scheduled task patterns
+
 ## Related Skills
 
 - `portless-ops` — the routing layer we pair with PC (replaces Caddy)

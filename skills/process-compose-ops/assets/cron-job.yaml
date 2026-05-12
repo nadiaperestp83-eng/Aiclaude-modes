@@ -1,0 +1,33 @@
+# process-compose.yaml — Scheduled (cron) job
+#
+# Pattern: Periodic batch task that PC runs on schedule, not as a daemon.
+
+version: "0.5"
+
+processes:
+
+  daily-backup:
+    command: "python scripts/backup.py --target s3://my-bucket"
+    working_dir: "X:/path/to/scripts"
+
+    environment:
+      - "PYTHONUNBUFFERED=1"
+      # AWS creds, etc., from boot-start .env loading
+
+    availability:
+      restart: exit_on_failure       # Stop the whole project if this fails
+      schedule: "0 2 * * *"          # cron syntax: 02:00 every day
+      # Or interval-based:
+      # schedule: "@every 6h"
+
+    log_location: "logs/daily-backup.log"
+
+  hourly-cleanup:
+    command: "python scripts/cleanup.py"
+    working_dir: "X:/path/to/scripts"
+    environment:
+      - "PYTHONUNBUFFERED=1"
+    availability:
+      restart: no                    # One-shot per schedule run
+      schedule: "0 * * * *"          # Every hour on the hour
+    log_location: "logs/hourly-cleanup.log"

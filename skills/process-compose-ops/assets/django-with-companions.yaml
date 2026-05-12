@@ -1,0 +1,74 @@
+# process-compose.yaml — Django web app + queue daemon + audit watcher
+#
+# Pattern: A main HTTP service with two long-running companion daemons
+# that depend on the main service being up.
+#
+# Notes:
+#   - depends_on ensures startup ordering, not runtime coupling.
+#     If the web app restarts, the daemons keep running.
+#   - The audit watcher uses Git Bash for a wrapper script that needs
+#     coreutils on PATH (single-quoted YAML to escape backslashes).
+#   - The daemon enforces an OAuth-only policy: ANTHROPIC_API_KEY must
+#     be unset (handled by the boot-start wrapper).
+
+version: "0.5"
+
+processes:
+
+  webapp:
+    command: "uv run python manage.py serve --host 127.0.0.1 --port 8000 --no-reload"
+    working_dir: "X:/path/to/myapp"
+    environment:
+      - "DJANGO_SETTINGS_MODULE=myapp.settings.local"
+      - "PYTHONUNBUFFERED=1"
+    readiness_probe:
+      http_get:
+        host: localhost
+        port: 8000
+        path: /
+      initial_delay_seconds: 30   # Django w/ migrations is slow to come up
+      period_seconds: 15
+      timeout_seconds: 5
+      failure_threshold: 3
+    availability:
+      restart: always
+      backoff_seconds: 5
+      max_restarts: 20
+    log_location: "logs/webapp.log"
+
+  webapp-daemon:
+    command: "uv run python -m myapp.worker.daemon-start"
+    working_dir: "X:/path/to/myapp"
+    environment:
+      - "PYTHONUNBUFFERED=1"
+      # NOTE: ANTHROPIC_API_KEY must be UNSET — daemon enforces OAuth-only.
+      # The boot-start wrapper handles this; for manual runs, unset it first.
+    depends_on:
+      webapp:
+        condition: process_started   # Just needs webapp's pid to exist;
+                                      # daemon polls webapp itself for readiness
+    availability:
+      restart: always
+      backoff_seconds: 5
+      max_restarts: 20
+    shutdown:
+      signal: 15           # SIGTERM
+      timeout_seconds: 35  # Allow daemon's 30s graceful shutdown_grace_s
+    log_location: "logs/webapp-daemon.log"
+
+  webapp-feedback:
+    # Bash wrapper script — paths in single quotes to avoid YAML escape interpretation
+    command: '"C:/Program Files/Git/usr/bin/bash.exe" --login X:/path/to/myapp/scripts/feedback-wrapper.sh'
+    working_dir: "X:/path/to/myapp"
+    environment:
+      - "PYTHONUNBUFFERED=1"
+      # Belt-and-braces PATH for the bash wrapper:
+      - 'PATH=C:\Program Files\Git\usr\bin;C:\Program Files\Git\bin;C:\Users\me\AppData\Local\Programs\Python\Python313\Scripts;C:\Windows\System32'
+    depends_on:
+      webapp:
+        condition: process_started
+    availability:
+      restart: always
+      backoff_seconds: 15
+      max_restarts: 20
+    log_location: "logs/webapp-feedback.log"
