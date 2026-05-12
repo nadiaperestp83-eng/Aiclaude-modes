@@ -13,7 +13,12 @@ metadata:
 
 Portless (Vercel Labs) is a local-dev HTTPS proxy that replaces port numbers with named URLs. Replacement for Caddy/nginx in the local-dev role; not for production.
 
-**Upstream:** [vercel-labs/portless](https://github.com/vercel-labs/portless) (Apache-2.0). The repo ships its own canonical [`SKILL.md`](https://github.com/vercel-labs/portless/blob/main/skills/portless/SKILL.md) and [oauth SKILL.md](https://github.com/vercel-labs/portless/blob/main/skills/oauth/SKILL.md) — consult those for full CLI reference. This skill adds operational patterns we've validated in production.
+**Upstream:** [vercel-labs/portless](https://github.com/vercel-labs/portless) (Apache-2.0). The portless repo ships canonical skills in its source tree (not in the npm package). Verbatim copies kept in `references/`:
+
+- **[`references/upstream-portless.md`](references/upstream-portless.md)** — full CLI reference, integration patterns (zero-config, monorepo, turborepo, worktrees, Tailscale), HTTPS/LAN setup, troubleshooting
+- **[`references/upstream-oauth.md`](references/upstream-oauth.md)** — OAuth provider compatibility (Google, Apple, Microsoft, Facebook, GitHub), TLD selection for OAuth, callback URI configuration
+
+This SKILL.md adds **operational patterns** we've validated in production (Windows specifics, the static-alias-with-supervisor pattern, TLD-reset procedure, supply-chain hygiene). For canonical CLI usage, prefer the upstream reference files.
 
 ## Mental Model
 
@@ -101,7 +106,7 @@ foreach ($svc in $services) {
 | `.dev` | OAuth (Google, Apple) | Google-owned, forces HTTPS — portless handles this fine |
 | `.local` | Avoid | mDNS/Bonjour conflict |
 
-OAuth providers reject `.localhost` subdomains (not in Public Suffix List). Switch to `--tld test` or `--tld dev` for OAuth dev work. See [upstream oauth SKILL.md](https://github.com/vercel-labs/portless/blob/main/skills/oauth/SKILL.md).
+OAuth providers reject `.localhost` subdomains (not in Public Suffix List). Switch to `--tld test` or `--tld dev` for OAuth dev work. See [`references/upstream-oauth.md`](references/upstream-oauth.md) for full per-provider setup.
 
 ## Reset (clean slate)
 
