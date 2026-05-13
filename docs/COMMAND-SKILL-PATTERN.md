@@ -16,10 +16,9 @@ Skills get slash-hint discovery via trigger keywords in their description and lo
 Most functionality lives in **skills**, not commands. Only session management and experimental features remain as commands.
 
 ```
-commands/           # Minimal (3 files)
+commands/           # Minimal (2 files)
   sync.md           # Session bootstrap
   save.md           # Session persistence
-  canvas.md         # Experimental TUI
 
 skills/             # Everything else (38 directories)
   explain/
@@ -81,7 +80,6 @@ skills/testgen/
 | Scenario | Use |
 |----------|-----|
 | Session management | Command (sync, save) |
-| Experimental/WIP | Command (canvas) |
 | Everything else | Skill |
 
 ## When to Use Skills

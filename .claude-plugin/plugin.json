@@ -1,7 +1,7 @@
 {
   "name": "claude-mods",
-  "version": "2.4.12",
-  "description": "Custom commands, skills, and agents for Claude Code - session continuity, 23 expert agents, 75 skills, 3 commands, 6 rules, 4 hooks, 13 output styles, modern CLI tools",
+  "version": "2.5.0",
+  "description": "Custom commands, skills, and agents for Claude Code - session continuity, 23 expert agents, 75 skills, 2 commands, 6 rules, 4 hooks, 13 output styles, modern CLI tools",
   "author": "0xDarkMatter",
   "repository": "https://github.com/0xDarkMatter/claude-mods",
   "license": "MIT",
@@ -12,15 +12,12 @@
     "skills",
     "session-management",
     "cli-tools",
-    "output-styles",
-    "canvas",
-    "terminal-ui"
+    "output-styles"
   ],
   "components": {
     "commands": [
       "commands/sync.md",
-      "commands/save.md",
-      "commands/canvas.md"
+      "commands/save.md"
     ],
     "agents": [
       "agents/astro-expert.md",

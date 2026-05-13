@@ -22,10 +22,11 @@ From Python async patterns to Rust ownership models, from AWS Fargate deployment
 
 ## Recent Updates
 
-**v2.4.12** (May 2026)
+**v2.5.0** (May 2026)
 - 🌐 **`portless-ops` skill** - Local-dev HTTPS proxy operations for Vercel Labs' [portless](https://github.com/vercel-labs/portless). Wraps the canonical upstream `SKILL.md` and `oauth/SKILL.md` (vendored verbatim into `references/` since the npm package only ships `dist/`) and overlays operational patterns we've validated: the static-alias pattern for pairing portless with external supervisors (Process Compose, PM2, Docker), TLD selection decision tree (`.test`/`.dev`/`.localhost`/custom-owned), Windows-specific gotchas (`openssl` PATH from Git for Windows, `certutil` quirks, curl-vs-browser cert handling, PS 5.1 vs 7+ flag differences), the clean-reset procedure when changing TLDs (because `portless alias --remove` appends the active TLD), and three runnable scripts: `install-portless.ps1` (audits the npm tarball for known supply-chain IOCs *before* installing), `reset-state.ps1` (full state wipe + re-register), `sync-aliases-from-yaml.ps1` (derives portless aliases from a supervisor's YAML). Four `portless.json` asset templates cover single-app, monorepo, custom-TLD-documented, and `package.json`-inline patterns.
 - 🎛️ **`process-compose-ops` skill** - Comprehensive operations for [Process Compose](https://github.com/F1bonacc1/process-compose), the Go-binary supervisor replacing PM2/supervisord/Foreman for non-containerised local services. Six reference files: `schema-reference.md` (full YAML schema with field semantics, defaults, and command-quoting gotchas including Windows-PATH backslash handling), `probe-patterns.md` (readiness probe recipes per stack — Python/Go/Node/TCP-only/daemons), `dependency-patterns.md` (`depends_on` patterns: companion daemons, DB-before-app, tunnel-after-service, one-shot init), `tui-shortcuts.md` (TUI keybindings cheatsheet, status legend, search/sort), `boot-persistence-windows.md` (Task Scheduler with `S4U` logon and PATH-aware wrapper script), `supply-chain-verification.md` (SHA-256 verification procedure for the binary). Four runnable scripts: `install-process-compose.ps1` (verified download + extract + writes `VERIFICATION.md`), `verify-binary.ps1` (re-verifies committed binary hash), plus boot wrapper and Task Scheduler installer templates. Five YAML assets: Python service, Django+companions, Go binary, Cloudflare tunnel pattern, cron job. Material derived from a 3-hour production migration from PM2+Caddy+Dagu to Process Compose+portless, anonymised for general use.
 - 📦 **Plugin manifest catch-up** - `summon` (v2.4.11) and `fleet-ops` (post-v2.4.11) were committed and listed in README but never added to `.claude-plugin/plugin.json`'s `components.skills` array, so they weren't being indexed by the plugin system. Both registered correctly now alongside the new pair.
+- 🗑️ **`/canvas` command and `canvas-tui` package removed** - The canvas command was experimental, Warp-terminal-specific, and unused. Deletion removes the only npm runtime-dep surface in claude-mods (2,096-line lockfile + 17 TypeScript/React source files + 117-line bundled README), leaving the repo as markdown + bash only. Minor bump rather than patch because it removes a documented public API (`/canvas`). Co-developed in branch `claude/sad-almeida-20699c` by a sibling Opus 4.7 session and integrated into this release.
 
 **v2.4.11** (May 2026)
 - ✨ **`summon` skill** - Push Claude Desktop Code-tab sessions across accounts so they appear in the next account you switch to. Best run *before* switching — while still on your current near-limit account, push mid-flight sessions to the destination, then Logout/Login as the natural switch. Default is copy (sessions visible from both accounts); `--move` for lean cleanup. Hierarchical Account → Project → Session picker with global numbering, `--peek <id>` for transcript preview, `--list-accounts` inventory, recency aliases (`--1d/--3d/--7d/--all`), 8-hint rotating tip system. Output follows `docs/DESIGN.md` (Terminal Panel Design System).
@@ -230,7 +231,6 @@ See [skill-creator](skills/skill-creator/) for the complete guide.
 |---------|-------------|
 | [sync](commands/sync.md) | Session bootstrap - restore tasks, plan, git/PR context. Suggests `--resume` and `--from-pr`. |
 | [save](commands/save.md) | Persist tasks, plan, git/PR context, and session summary to native memory. |
-| [canvas](commands/canvas.md) | Terminal canvas for content drafting with live markdown preview. Requires Warp terminal. (Experimental) |
 
 ### Skills
 
@@ -548,7 +548,7 @@ When using multiple MCP servers (Chrome DevTools, Vibe Kanban, etc.), their tool
 
 ### Skills Over Commands
 
-Most functionality lives in skills rather than commands. Skills get slash-hint discovery via trigger keywords and load on-demand, reducing context overhead. Only session management (`/sync`, `/save`) and experimental features (`/canvas`) remain as commands.
+Most functionality lives in skills rather than commands. Skills get slash-hint discovery via trigger keywords and load on-demand, reducing context overhead. Only session management (`/sync`, `/save`) remains as commands.
 
 See `docs/COMMAND-SKILL-PATTERN.md` for details.
 

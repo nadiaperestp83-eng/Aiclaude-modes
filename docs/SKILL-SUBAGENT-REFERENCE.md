@@ -111,6 +111,5 @@ hooks:
 |---------|---------|-----------|
 | `/sync` | Main | Must restore session state (tasks, context) |
 | `/save` | Main | Must access current tasks via TaskList |
-| `/canvas` | Main | Interactive TUI requires real-time feedback |
 
 These MUST run in main context - subagent isolation would break their core functionality.

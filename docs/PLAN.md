@@ -14,7 +14,7 @@
 |-----------|-------|-------|
 | Agents | 23 | Domain experts + git-agent background worker |
 | Skills | 64 | Operational skills, CLI tools, workflows, dev tasks |
-| Commands | 3 | Session management (sync, save) + experimental (canvas) |
+| Commands | 2 | Session management (sync, save) |
 | Rules | 5 | CLI tools, thinking, commit style, naming, skill-agent-updates |
 | Output Styles | 4 | Vesper, Spartan, Mentor, Executive |
 | Hooks | 3 | pre-commit-lint, post-edit-format, dangerous-cmd-warn |
@@ -45,9 +45,8 @@
 - [x] Patterns: REST, SQL, security, testing, tailwind
 - [x] Development: explain, spawn, atomise, setperms, introspect, review, testgen
 
-### Commands (3)
+### Commands (2)
 - [x] Session: `/save`, `/sync`
-- [x] Experimental: `/canvas`
 
 ### Documentation
 - [x] ARCHITECTURE.md - Extension system guide with authority levels
@@ -162,7 +161,6 @@ Most commands have been converted to skills for better discovery and on-demand l
 **Remaining as commands:**
 - `/sync` - Session bootstrap (paired with /save)
 - `/save` - Session persistence (paired with /sync)
-- `/canvas` - Experimental (Warp-specific)
 
 ---
 

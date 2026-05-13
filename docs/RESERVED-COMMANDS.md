@@ -47,7 +47,7 @@ Also avoid:
 Current claude-mods skills/commands (verified no conflicts):
 
 **Commands:**
-- atomise, canvas, explain, introspect, save, setperms, spawn, sync
+- atomise, explain, introspect, save, setperms, spawn, sync
 
 **Skills:**
 - review, testgen, code-stats, doc-scanner, file-search, find-replace, git-ops, tool-discovery, task-runner, python-env, structural-search, data-processing, markitdown, etc.
