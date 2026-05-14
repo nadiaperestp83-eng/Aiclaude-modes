@@ -12,15 +12,18 @@
 
 > *A comprehensive extension toolkit that transforms Claude Code into a specialized development powerhouse.*
 
-**claude-mods** is a production-ready plugin that extends Claude Code with 23 expert agents, 69 specialized skills, 13 output styles, 4 hooks, and modern CLI tools designed for real-world development workflows. Whether you're debugging React hooks, optimizing PostgreSQL queries, or building production CLI applications, this toolkit equips Claude with the domain expertise and procedural knowledge to work at expert level across multiple technology stacks.
+**claude-mods** is a production-ready plugin that extends Claude Code with 23 expert agents, 74 specialized skills, 13 output styles, 4 hooks, and modern CLI tools designed for real-world development workflows. Whether you're debugging React hooks, optimizing PostgreSQL queries, or building production CLI applications, this toolkit equips Claude with the domain expertise and procedural knowledge to work at expert level across multiple technology stacks.
 
 Built on the [Agent Skills specification](https://agentskills.io/specification) (an open standard backed by Anthropic, Vercel, Google, Microsoft, and 40+ agent platforms), claude-mods fills critical gaps in Claude Code's capabilities: persistent session state that survives across machines, on-demand expert knowledge for specialized domains, token-efficient modern CLI tools (10-100x faster than traditional alternatives), and proven workflow patterns for TDD, code review, and feature development. The toolkit implements Anthropic's [recommended patterns for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents), ensuring your development context never vanishes when sessions end.
 
 From Python async patterns to Rust ownership models, from AWS Fargate deployments to Craft CMS development - claude-mods provides the specialized knowledge and tools that transform Claude from a general-purpose assistant into a domain expert who understands your stack, remembers your workflow, and ships production code.
 
-**23 agents. 71 skills. 13 styles. 4 hooks. 6 rules. One install.**
+**23 agents. 74 skills. 13 styles. 4 hooks. 5 rules. One install.**
 
 ## Recent Updates
+
+**v2.5.0** (May 2026)
+- 🌐 **`net-ops` skill** - Cross-platform network troubleshooting (Windows / macOS / Linux) via local or remote SSH with a layered diagnostic ladder: link → ICMP → socket → DNS infrastructure → OS resolver → app. NDP-aware IPv6 classifier (disabled / ULA-only / no-route / path-broken / healthy), MTU/PMTU test, time-skew check, browser DoH detection (Chrome / Brave / Firefox), WSL2/container awareness. Modes: `--watch`, `--json` (NDJSON), `--redact` for opsec-clean dumps, `--quick` for skip-if-healthy. Per-OS probe + dns-audit + repair scripts, reverse-mode probe, 24-test self-suite.
 
 **v2.4.11** (May 2026)
 - ✨ **`summon` skill** - Push Claude Desktop Code-tab sessions across accounts so they appear in the next account you switch to. Best run *before* switching — while still on your current near-limit account, push mid-flight sessions to the destination, then Logout/Login as the natural switch. Default is copy (sessions visible from both accounts); `--move` for lean cleanup. Hierarchical Account → Project → Session picker with global numbering, `--peek <id>` for transcript preview, `--list-accounts` inventory, recency aliases (`--1d/--3d/--7d/--all`), 8-hint rotating tip system. Output follows `docs/DESIGN.md` (Terminal Panel Design System).

@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# net-ops :: probe (dispatcher)
+# Detects the local OS and runs the matching per-OS probe with the same args.
+# Supports --watch=N for continuous monitoring (prints state on change only).
+# For Windows targets you reach over SSH, invoke scripts/windows/probe.ps1
+# directly via PowerShell (see scripts/ssh-bootstrap.sh for the pattern).
+
+set -eu
+
+here="$(cd "$(dirname "$0")" && pwd)"
+
+# Parse --watch (with optional =N seconds; default 30)
+watch_interval=0
+clean_args=()
+for arg in "$@"; do
+    case "$arg" in
+        --watch)        watch_interval=30 ;;
+        --watch=*)      watch_interval="${arg#--watch=}" ;;
+        *)              clean_args+=("$arg") ;;
+    esac
+done
+
+# Resolve the per-OS probe script
+case "$(uname -s 2>/dev/null)" in
+    Darwin) target="$here/macos/probe.sh" ;;
+    Linux)  target="$here/linux/probe.sh" ;;
+    CYGWIN*|MINGW*|MSYS*)
+        cat >&2 <<EOF
+Detected Windows shell environment ($(uname -s)).
+Run the PowerShell probe directly:
+  powershell -NoProfile -File "$here/windows/probe.ps1" $*
+EOF
+        exit 2 ;;
+    *)
+        echo "net-ops: unsupported OS '$(uname -s 2>/dev/null)'" >&2
+        exit 2 ;;
+esac
+
+# Continuous watch mode: re-run every N seconds, but only print on state change.
+# A "state" is the (pass_count, fail_count, first_fail) tuple.
+if [[ "$watch_interval" -gt 0 ]]; then
+    echo "Watching every ${watch_interval}s — prints on state change only. Ctrl-C to stop." >&2
+    last_state=""
+    while true; do
+        # Run in JSON mode to extract summary cleanly; suppress streaming output
+        json=$(bash "$target" --json ${clean_args[@]+"${clean_args[@]}"} 2>/dev/null | grep '^{"type":"summary"' | head -1)
+        state=$(printf '%s' "$json" | tr -d ' ')
+        ts=$(date '+%Y-%m-%d %H:%M:%S')
+        if [[ "$state" != "$last_state" ]]; then
+            if [[ -z "$last_state" ]]; then
+                printf '[%s] initial state: %s\n' "$ts" "$json"
+            else
+                printf '[%s] CHANGED: %s\n' "$ts" "$json"
+            fi
+            last_state="$state"
+        else
+            printf '[%s] (no change)\n' "$ts"
+        fi
+        sleep "$watch_interval"
+    done
+fi
+
+# Default: one-shot execution
+exec "$target" ${clean_args[@]+"${clean_args[@]}"}
