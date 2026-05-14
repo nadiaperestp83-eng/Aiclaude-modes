@@ -133,9 +133,15 @@ for skill_dir in "$PROJECT_ROOT/skills"/*/; do
     [ -d "$skill_dir" ] || continue
     skill_name=$(basename "$skill_dir")
 
-    # Remove existing and copy fresh
+    # Skip _lib (shared library used by multiple skills, not a skill itself)
+    [ "$skill_name" = "_lib" ] && continue
+
+    # Remove existing and copy fresh. Strip trailing slash from $skill_dir
+    # so cp creates a subdirectory rather than merging contents (the *.*/* glob
+    # always returns paths with trailing slashes, which makes cp behave as if
+    # asked to copy contents — that's a long-standing bug we just fixed).
     rm -rf "$CLAUDE_DIR/skills/$skill_name"
-    cp -r "$skill_dir" "$CLAUDE_DIR/skills/"
+    cp -r "${skill_dir%/}" "$CLAUDE_DIR/skills/"
     echo -e "  ${GREEN}$skill_name/${NC}"
 done
 echo ""
