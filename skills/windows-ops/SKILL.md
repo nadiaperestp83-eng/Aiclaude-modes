@@ -36,6 +36,10 @@ Cloning data off a failing drive without finishing it off. `robocopy /R:0 /W:0` 
 
 Recovery from no-boot scenarios — boot configuration data (BCD) repair via `bootrec`, UEFI bootloader rebuild via `bcdboot`, Safe Mode access from a failing system, System Restore from Windows RE, and the boot-sequence triage layers (POST → boot device → boot driver → service load → shell).
 
+Remote Windows diagnostics across the network. PowerShell remoting via WS-Man (the default WinRM transport) or SSH (modern alternative on Win10 1809+). Authentication for in-domain (Kerberos), workgroup (NTLM via `TrustedHosts`), and cross-OS (SSH key) scenarios. The double-hop problem and CredSSP. Running this skill's diagnostic scripts against a remote box by staging the skill folder via `Copy-Item -ToSession`.
+
+Boot duration measurement and slow-startup-component identification. The `Microsoft-Windows-Diagnostics-Performance/Operational` log (admin-only) records per-boot timing — `BootMainPathTime`, `BootPostBootTime`, total, and degradation flag — plus calls out specific apps, drivers, or services that exceeded the system's fast-boot threshold. Without admin, kernel-event fallback gives coarser but still useful timing.
+
 ## The Universal Insight
 
 **Windows tells you what's wrong if you ask the right log in the right way.** Most users (and most tutorials) reach for Task Manager. The actual diagnostic signal lives in the Event Log, the Registry's StartupApproved key, the storage driver's reset events, and the kernel's bugcheck records. This skill packages the queries that turn noise into a verdict.
@@ -75,6 +79,7 @@ Produces a verdict block: hardware errors, storage health per disk, recent crash
 | Storage errors flagged | `scripts/disk-health.ps1 -DiskNumber N` (or `-DriveLetter X` or `-Model 'HGST'`) — focused per-drive deep dive: SMART, all event IDs, controller resets attributable to the drive, verdict |
 | Recent crash | `scripts/crash-triage.ps1 -CrashTime <datetime>` (or omit for most recent) — pre-crash timeline + BugCheck decode with smoking-gun detection |
 | "Is it safe to disconnect drive X?" | `scripts/drive-dependencies.ps1 -DriveLetter X` — finds pagefile, search index, scheduled tasks, services, symlinks, startup shortcuts, run-key refs pointing at drive |
+| "Why is boot taking so long?" | `scripts/boot-perf.ps1` — per-boot durations from Diagnostics-Performance log (admin) or kernel-event fallback (non-admin), with slow-component flags |
 
 ### 3. Apply the minimum reversible fix
 
@@ -312,6 +317,8 @@ Output follows the claude-mods diagnostic convention:
 - `references/startup-mechanisms.md` — Deep dive on all five Windows startup mechanisms: registry Run keys, services, scheduled tasks, startup folders, group policy. Load when doing a full startup audit, hunting vendor-installed auto-launch hooks across multiple mechanisms, or implementing the StartupApproved disable trick. Includes vendor-pattern checklists (Adobe, Docker, NVIDIA) and edge cases like WMI permanent event consumers and IFEO Debugger redirects.
 
 - `references/recovery-patterns.md` — Drive-failure data recovery (robocopy `/R:0`, ddrescue with map files), filesystem repair (chkdsk decision tree — when NEVER to `/f`), system file integrity (`sfc`, `DISM /Online /Cleanup-Image /RestoreHealth`), boot configuration repair (BCD, `bootrec`, UEFI bootloader rebuild), pagefile relocation, drive removal procedures (software offline → BIOS-disable → physical disconnect → destruction), and no-boot recovery (Windows RE, Safe Mode, System Restore). Load when responding to "my drive is dying" or any irreversible/destructive operation.
+
+- `references/remote-diagnostics.md` — PowerShell remoting patterns (WS-Man and SSH transports) for running this skill against a remote Windows box. Authentication models (Kerberos, NTLM, CredSSP, SSH keys), `TrustedHosts` setup for workgroup machines, the double-hop problem, common error catalog, and a complete worked example: stage the skill on the target via `Copy-Item -ToSession`, then invoke each script remotely and parse the JSON output. Load when troubleshooting "my dad's PC across town", a server in a datacenter, or any Windows machine where physical access isn't available.
 
 ## Worked example
 

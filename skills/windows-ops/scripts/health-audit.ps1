@@ -345,6 +345,31 @@ try {
     Add-Finding -Level $level -Category 'resource' -Subject 'Memory' -Detail "$memUsedPct% used"
 } catch {}
 
+# Thermal — CPU/chipset temps via WMI's MSAcpi_ThermalZoneTemperature.
+# Often returns nothing on desktops (vendor doesn't expose to ACPI thermal
+# zones) but always tries. Values are in tenths-of-Kelvin.
+try {
+    $zones = Get-CimInstance -Namespace 'root/wmi' -ClassName MSAcpi_ThermalZoneTemperature -ErrorAction SilentlyContinue
+    if ($zones) {
+        foreach ($z in $zones) {
+            $tempC = [math]::Round((($z.CurrentTemperature / 10.0) - 273.15), 1)
+            $level = if ($tempC -ge 95) { 'fail' }
+                     elseif ($tempC -ge 85) { 'warn' }
+                     elseif ($tempC -gt 0)  { 'pass' }
+                     else { 'info' }
+            $detail = if ($tempC -ge 95) { "$tempC C — CRITICAL (CPU throttling / shutdown imminent)" }
+                      elseif ($tempC -ge 85) { "$tempC C — high (sustained loads risky)" }
+                      else { "$tempC C" }
+            Add-Finding -Level $level -Category 'thermal' -Subject "Zone: $($z.InstanceName)" -Detail $detail
+        }
+    } else {
+        Add-Finding -Level info -Category 'thermal' -Subject 'ACPI thermal zones' `
+            -Detail "Not exposed via WMI (common on desktops). Install OpenHardwareMonitor / LibreHardwareMonitor for full thermal data."
+    }
+} catch {
+    Add-Finding -Level info -Category 'thermal' -Subject 'ACPI thermal zones' -Detail "Query failed: $_"
+}
+
 # Top processes by CURRENT CPU% over a 2-second sample (not accumulated CPU
 # time — that's misleading for long-running processes).
 try {
