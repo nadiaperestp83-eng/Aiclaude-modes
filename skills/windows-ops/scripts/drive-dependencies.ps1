@@ -61,6 +61,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\_lib\common.ps1"
+. (Join-Path $PSScriptRoot '..\..\_lib\term.ps1')
+Initialize-Term
 
 # Resolve target drive letter(s)
 if ($PSCmdlet.ParameterSetName -eq 'Number') {
@@ -109,9 +111,7 @@ function Add-Dependency {
     $findings.Add(@{ category=$Category; name=$Name; target=$Target; severity=$Severity })
 }
 
-if (-not $Json) {
-    Write-Section "Drive dependency audit: $($targetLetters -join ', ')"
-}
+# (panel header rendered after dependency collection — see end of script)
 
 # ─────────────────────────────────────────────────────────────────────
 # 1. Pagefile location
@@ -271,20 +271,71 @@ if ($Json) {
         verdict       = $verdict
     } | ConvertTo-Json -Depth 5 | ForEach-Object { [Console]::Out.WriteLine($_) }
 } else {
-    if (-not $findings) {
-        [Console]::Out.WriteLine("")
-        [Console]::Out.WriteLine("  No dependencies found.")
+    $indicator = ($targetLetters -join ',')
+    Write-TermLine (New-TermPanelOpen -Brand 'windows-ops' -Name 'windows-ops' -Subtitle 'drive-dependencies' -Indicator $indicator)
+    Write-TermLine (New-TermPanelVert)
+
+    $totalRefs = $findings.Count
+    $summary = if ($criticalCount -gt 0) {
+        "$totalRefs references · DO NOT DISCONNECT"
+    } elseif ($warnCount -gt 0) {
+        "$totalRefs references · review before disconnect"
     } else {
-        [Console]::Out.WriteLine("")
-        $findings | Sort-Object { $_.category } | ForEach-Object {
-            $tag = switch ($_.severity) { 'critical' {'[CRITICAL]'} 'warn' {'[WARN]    '} default {'[INFO]    '} }
-            [Console]::Out.WriteLine(("  {0}  {1,-18}  {2,-40}  {3}" -f $tag, $_.category, $_.name.Substring(0,[Math]::Min(40,$_.name.Length)), $_.target.Substring(0,[Math]::Min(80,$_.target.Length))))
-        }
+        "0 system references · safe to disconnect"
     }
-    Write-Section "VERDICT"
-    [Console]::Out.WriteLine("  $verdict")
-    [Console]::Out.WriteLine("")
-    [Console]::Out.WriteLine("  Critical: $criticalCount    Warnings: $warnCount")
+    Write-TermLine (New-TermSummary -Text $summary)
+    Write-TermLine (New-TermPanelVert)
+
+    # CRITICAL section first — highest severity
+    $criticals = $findings | Where-Object { $_.severity -eq 'critical' }
+    if ($criticals) {
+        Write-TermLine (New-TermSection -State 'CRITICAL' -Label 'CRITICAL' -Count $criticals.Count)
+        $last = $criticals[-1]
+        foreach ($f in $criticals) {
+            $name = "$($f.category)"
+            $target = Get-TermTruncated -Text $f.target -MaxCols 50
+            Write-TermLine (New-TermLeaf -Name $name -Meta $f.name -Age '' -IsLast:($f -eq $last) -NameColWidth 20 -RailColWidth 0)
+        }
+        Write-TermLine (New-TermAlert -Severity critical -Text 'system-critical references — disconnecting will break the OS')
+        Write-TermLine (New-TermPanelVert)
+    }
+
+    # WARN section — condense if very large
+    $warns = $findings | Where-Object { $_.severity -eq 'warn' }
+    if ($warns) {
+        Write-TermLine (New-TermSection -State 'WARN' -Label 'WARN' -Count $warns.Count)
+        $showCount = if ($warns.Count -gt 20) { 8 } else { $warns.Count }
+        $visible = $warns | Select-Object -First $showCount
+        $last = $visible[-1]
+        foreach ($f in $visible) {
+            $target = Get-TermTruncated -Text $f.target -MaxCols 50
+            Write-TermLine (New-TermLeaf -Name $f.category -Meta $f.name -Age $target -IsLast:($f -eq $last -and $warns.Count -le 20) -NameColWidth 20 -RailColWidth 0 -MetaColWidth 30)
+        }
+        if ($warns.Count -gt 20) {
+            Write-TermLine (New-TermLeaf -Name "($($warns.Count - $showCount) more)" -IsLast -NameColWidth 20 -RailColWidth 0)
+            Write-TermLine (New-TermAlert -Severity warning -Text "run with -Json to see the full list")
+        }
+        Write-TermLine (New-TermPanelVert)
+    }
+
+    if (-not $findings) {
+        Write-TermLine (New-TermHint -Text 'no system mechanism references this drive')
+        Write-TermLine (New-TermPanelVert)
+    }
+
+    # Footer
+    $health = if ($criticalCount -gt 0) {
+        New-TermHealth -State 'busted' -Text 'blocked'
+    } elseif ($warnCount -gt 0) {
+        New-TermHealth -State 'warning' -Text 'warnings'
+    } else {
+        New-TermHealth -State 'healthy' -Text 'safe'
+    }
+    $hk = @(
+        (New-TermHotkey -Key 'B' -Verb 'back')
+        (New-TermHotkey -Key '?' -Verb 'help')
+    ) | Join-TermHotkeys
+    Write-TermLine (New-TermPanelClose -Hotkeys $hk -Healths $health)
 }
 
 if ($criticalCount -gt 0) { exit $script:EXIT_VALIDATION }
