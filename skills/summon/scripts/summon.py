@@ -13,7 +13,7 @@ Defaults:
 Auto-detects destination as the most-recently-active account.
 Source defaults to "all other accounts" — narrow with --from.
 
-Output rendering follows docs/DESIGN.md (Terminal Panel Design System).
+Output rendering follows docs/TERMINAL-DESIGN.md (Terminal Panel Design System).
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ from typing import Iterable
 
 
 # ============================================================
-#  DESIGN: terminal panel rendering (per docs/DESIGN.md)
+#  DESIGN: terminal panel rendering (per docs/TERMINAL-DESIGN.md)
 # ============================================================
 
 def _stdout_supports_unicode() -> bool:
@@ -95,7 +95,7 @@ def trunc(s: str, width: int) -> str:
     return s[: width - vlen(ell)] + ell
 
 
-# Brand emoji for summon (not in DESIGN.md registry yet — registering here)
+# Brand emoji for summon (not in TERMINAL-DESIGN.md registry yet — registering here)
 BRAND_EMOJI = "🪄"
 BRAND_ASCII = "[S]"
 
@@ -1017,7 +1017,7 @@ def main():
         echo(panel_close())
         return
 
-    # Summary line at the TOP per DESIGN.md.
+    # Summary line at the TOP per TERMINAL-DESIGN.md.
     sep = Term.g("·", "|")
     if len(source_accounts) == 1:
         src_email = source_accounts[0].email or source_accounts[0].short

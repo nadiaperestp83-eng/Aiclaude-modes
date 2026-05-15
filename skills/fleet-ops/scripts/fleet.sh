@@ -19,7 +19,7 @@ LOG="$FLEET_DIR/activity.log"
 CONFIG="$FLEET_DIR/config"
 PID_FILE="$FLEET_DIR/daemon.pid"
 
-# Shared terminal-output helpers (see docs/DESIGN.md).
+# Shared terminal-output helpers (see docs/TERMINAL-DESIGN.md).
 # shellcheck source=../../_lib/term.sh
 . "$SCRIPT_DIR/../../_lib/term.sh"
 # Honor legacy FLEET_ASCII alongside TERM_ASCII.

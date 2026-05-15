@@ -7,7 +7,7 @@
 #   term_init
 #
 # Honors: NO_COLOR, FORCE_COLOR, TERM_ASCII=1, FLEET_ASCII=1 (legacy).
-# Status: experimental — see docs/DESIGN.md.
+# Status: experimental — see docs/TERMINAL-DESIGN.md.
 
 # Guard against double-sourcing.
 [[ -n "${__TERM_SH_LOADED:-}" ]] && return 0

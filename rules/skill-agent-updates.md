@@ -11,4 +11,4 @@ These APIs change frequently. For detailed reference (frontmatter fields, decisi
 
 ## Terminal output
 
-Skills that print to a TTY follow `docs/DESIGN.md` and source `skills/_lib/term.sh` for glyphs, colors, and layout helpers. Don't roll your own ANSI codes or state icons — `term_init` plus `term_state_icon` / `term_header` / `term_table_row` cover the common cases and keep the toolkit visually coherent.
+Skills that print to a TTY follow `docs/TERMINAL-DESIGN.md` and source `skills/_lib/term.sh` for glyphs, colors, and layout helpers. Don't roll your own ANSI codes or state icons — `term_init` plus `term_state_icon` / `term_header` / `term_table_row` cover the common cases and keep the toolkit visually coherent.

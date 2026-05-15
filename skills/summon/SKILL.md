@@ -78,7 +78,7 @@ Mechanically identical — the file moves are the same regardless of which frami
 
 ## Display
 
-Output follows the [Terminal Panel Design System](../../docs/DESIGN.md) (panel header, body with `│` rail, footer, ASCII fallback when stdout isn't UTF-8). The candidate hierarchy is **Account → Project → Session**, with sessions globally numbered for picker selection (`3, 5, 7`).
+Output follows the [Terminal Panel Design System](../../docs/TERMINAL-DESIGN.md) (panel header, body with `│` rail, footer, ASCII fallback when stdout isn't UTF-8). The candidate hierarchy is **Account → Project → Session**, with sessions globally numbered for picker selection (`3, 5, 7`).
 
 ```
 ╭── 🪄 summon ──────────────────────────────────────────────── → mknv74 ───●
