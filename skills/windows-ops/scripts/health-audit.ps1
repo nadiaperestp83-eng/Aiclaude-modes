@@ -201,6 +201,39 @@ if ($resetCount -gt 5) {
         -Detail "No storahci resets in last $Days days"
 }
 
+# Pagefile location — flag if pagefile is on a failing drive
+try {
+    $pagefiles = Get-CimInstance Win32_PageFileSetting -ErrorAction SilentlyContinue
+    foreach ($pf in $pagefiles) {
+        if (-not $pf.Name) { continue }
+        $pfLetter = $pf.Name.Substring(0,1).ToUpper()
+        $pfDisk = $diskMap | Where-Object { $_.DriveLetters -like "*$pfLetter*" } | Select-Object -First 1
+        if ($pfDisk -and $failingDisks -contains $pfDisk) {
+            Add-Finding -Level fail -Category 'storage' -Subject 'Pagefile location' `
+                -Detail "Pagefile on FAILING drive: $($pf.Name) (Disk $($pfDisk.Number)). Move to a healthy drive."
+        } else {
+            Add-Finding -Level pass -Category 'storage' -Subject 'Pagefile location' `
+                -Detail "Pagefile on healthy drive: $($pf.Name)"
+        }
+    }
+} catch {}
+
+# Windows Search index location — boot-time amplifier if on failing drive
+try {
+    $idxDir = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows Search' -Name DataDirectory -ErrorAction SilentlyContinue).DataDirectory
+    if ($idxDir) {
+        $idxLetter = $idxDir.Substring(0,1).ToUpper()
+        $idxDisk = $diskMap | Where-Object { $_.DriveLetters -like "*$idxLetter*" } | Select-Object -First 1
+        if ($idxDisk -and $failingDisks -contains $idxDisk) {
+            Add-Finding -Level fail -Category 'storage' -Subject 'Search index location' `
+                -Detail "Search index on FAILING drive: $idxDir. Move to a healthy drive."
+        } else {
+            Add-Finding -Level pass -Category 'storage' -Subject 'Search index location' `
+                -Detail "Search index on healthy drive: $idxDir"
+        }
+    }
+} catch {}
+
 # ─────────────────────────────────────────────────────────────────────
 # Section: Crash history
 # ─────────────────────────────────────────────────────────────────────
@@ -312,14 +345,40 @@ try {
     Add-Finding -Level $level -Category 'resource' -Subject 'Memory' -Detail "$memUsedPct% used"
 } catch {}
 
-# Top 5 processes by accumulated CPU
+# Top processes by CURRENT CPU% over a 2-second sample (not accumulated CPU
+# time — that's misleading for long-running processes).
 try {
-    $topCpu = Get-Process | Where-Object { $_.CPU -gt 30 } | Sort-Object CPU -Descending | Select-Object -First 5
-    foreach ($p in $topCpu) {
-        Add-Finding -Level info -Category 'resource' -Subject "Top CPU: $($p.ProcessName)" `
-            -Detail "$([math]::Round($p.CPU,0))s CPU, $([math]::Round($p.WorkingSet/1MB,0)) MB"
+    $sample1 = Get-Process | Select-Object Id, ProcessName, CPU, WorkingSet
+    Start-Sleep -Milliseconds 2000
+    $sample2 = Get-Process | Select-Object Id, ProcessName, CPU, WorkingSet
+    $cores = (Get-CimInstance Win32_Processor | Measure-Object -Property NumberOfLogicalProcessors -Sum).Sum
+    if (-not $cores) { $cores = 1 }
+    $top = @()
+    foreach ($p2 in $sample2) {
+        $p1 = $sample1 | Where-Object { $_.Id -eq $p2.Id } | Select-Object -First 1
+        if (-not $p1) { continue }
+        $deltaCpuSec = $p2.CPU - $p1.CPU
+        $pct = [math]::Round(($deltaCpuSec / 2.0 / $cores) * 100, 1)
+        if ($pct -gt 1.0) {
+            $top += [PSCustomObject]@{
+                Name    = $p2.ProcessName
+                Pid     = $p2.Id
+                Pct     = $pct
+                RamMB   = [math]::Round($p2.WorkingSet / 1MB, 0)
+            }
+        }
     }
-} catch {}
+    $top = $top | Sort-Object Pct -Descending | Select-Object -First 5
+    foreach ($p in $top) {
+        Add-Finding -Level info -Category 'resource' -Subject "Active CPU: $($p.Name)" `
+            -Detail "$($p.Pct)% CPU (sampled 2s), $($p.RamMB) MB RAM, PID $($p.Pid)"
+    }
+    if (-not $top) {
+        Add-Finding -Level pass -Category 'resource' -Subject 'CPU pressure' -Detail "No process consuming >1% over 2s sample"
+    }
+} catch {
+    Add-Finding -Level info -Category 'resource' -Subject 'CPU sample' -Detail "Failed: $_"
+}
 
 # ─────────────────────────────────────────────────────────────────────
 # Verdict

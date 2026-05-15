@@ -87,11 +87,28 @@ function Get-RunEntries {
                 }
         }
     }
+    # Startup folder shortcuts use a separate StartupApproved variant
+    foreach ($d in @("$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup",
+                     "$env:ALLUSERSPROFILE\Microsoft\Windows\Start Menu\Programs\StartUp")) {
+        if (Test-Path $d) {
+            Get-ChildItem $d -Filter *.lnk -ErrorAction SilentlyContinue | ForEach-Object {
+                $entries += [PSCustomObject]@{
+                    Name    = $_.Name        # full filename, e.g. "Comet.lnk"
+                    Command = $_.FullName
+                    Path    = $d
+                    Variant = 'StartupFolder'
+                }
+            }
+        }
+    }
     return $entries
 }
 
 function Get-CurrentState {
-    param([Parameter(Mandatory)][string]$EntryName, [Parameter(Mandatory)][string]$Variant)
+    param(
+        [Parameter(Mandatory)][string]$EntryName,
+        [Parameter(Mandatory)][ValidateSet('Run','Run32','StartupFolder')][string]$Variant
+    )
     $key = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\$Variant"
     if (-not (Test-Path $key)) { return 'unmanaged' }
     $val = (Get-ItemProperty $key -Name $EntryName -ErrorAction SilentlyContinue).$EntryName

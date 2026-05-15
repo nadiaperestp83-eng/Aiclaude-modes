@@ -30,6 +30,12 @@ Identifying which physical drive is failing when the symptom is "Disk 1" or "\De
 
 Adobe Creative Cloud / Docker Desktop / Slack / Electron app bloat eating boot time. Each ships with multiple startup entries (registry + services + scheduled tasks) that all need disabling to fully stop the auto-launch.
 
+"Is it safe to physically disconnect drive X?" — finding every system mechanism that references a drive letter before pulling the cable. Pagefile location, Windows Search index, scheduled tasks, services, user-profile junctions / symlinks, startup folder shortcuts, registry Run keys, and volume mount points. The wrong answer destroys uptime; the right answer is a one-line verdict.
+
+Cloning data off a failing drive without finishing it off. `robocopy /R:0 /W:0` (no retries) avoids the "every retry on a bad sector kills the drive faster" trap. For severely damaged drives, `ddrescue` with a resumable map file is the next tier. NEVER `chkdsk /f` a failing drive — repair operations write to bad sectors and accelerate failure.
+
+Recovery from no-boot scenarios — boot configuration data (BCD) repair via `bootrec`, UEFI bootloader rebuild via `bcdboot`, Safe Mode access from a failing system, System Restore from Windows RE, and the boot-sequence triage layers (POST → boot device → boot driver → service load → shell).
+
 ## The Universal Insight
 
 **Windows tells you what's wrong if you ask the right log in the right way.** Most users (and most tutorials) reach for Task Manager. The actual diagnostic signal lives in the Event Log, the Registry's StartupApproved key, the storage driver's reset events, and the kernel's bugcheck records. This skill packages the queries that turn noise into a verdict.
@@ -66,18 +72,21 @@ Produces a verdict block: hardware errors, storage health per disk, recent crash
 
 | Symptom | Script |
 |---|---|
-| Storage errors flagged | `scripts/disk-health.ps1` — per-drive SMART + event correlation |
-| Recent crash | `scripts/crash-triage.ps1 -CrashTime <datetime>` — pre-crash timeline + BugCheck decode |
-| Slow boot / many startup items | `scripts/startup-audit.ps1` — all 5 mechanisms inventoried |
-| Need to query specific events | `scripts/event-search.ps1 -Provider <name> -Hours <N>` — flexible filter helper |
+| Storage errors flagged | `scripts/disk-health.ps1 -DiskNumber N` (or `-DriveLetter X` or `-Model 'HGST'`) — focused per-drive deep dive: SMART, all event IDs, controller resets attributable to the drive, verdict |
+| Recent crash | `scripts/crash-triage.ps1 -CrashTime <datetime>` (or omit for most recent) — pre-crash timeline + BugCheck decode with smoking-gun detection |
+| "Is it safe to disconnect drive X?" | `scripts/drive-dependencies.ps1 -DriveLetter X` — finds pagefile, search index, scheduled tasks, services, symlinks, startup shortcuts, run-key refs pointing at drive |
 
 ### 3. Apply the minimum reversible fix
 
 | Action | Script |
 |---|---|
-| Disable startup app (no admin needed) | `scripts/safe-disable-startup.ps1 -Name <regname>` |
+| Disable startup app — Run keys (HKCU + HKLM + WOW64) | `scripts/safe-disable-startup.ps1 -Name <pattern>` (no admin needed; supports wildcards) |
+| Disable startup folder shortcut | `scripts/safe-disable-startup.ps1 -Name '*.lnk'` (covered by same script via StartupFolder variant) |
+| List current state of all startup entries | `scripts/safe-disable-startup.ps1 -List` |
+| Re-enable previously disabled | `scripts/safe-disable-startup.ps1 -Name <pattern> -Enable` |
 | Set service to Manual (admin) | `Set-Service <name> -StartupType Manual; Stop-Service <name>` |
 | Disable scheduled task | `Disable-ScheduledTask -TaskName <name>` |
+| Safe clone from failing drive | `scripts/recover-clone.ps1 -Source <path> -Destination <path>` — robocopy with `/R:0` to avoid pounding bad sectors |
 
 All disables are reversible — the StartupApproved registry mechanism flips one byte; re-enabling is the inverse.
 
@@ -302,34 +311,46 @@ Output follows the claude-mods diagnostic convention:
 
 - `references/startup-mechanisms.md` — Deep dive on all five Windows startup mechanisms: registry Run keys, services, scheduled tasks, startup folders, group policy. Load when doing a full startup audit, hunting vendor-installed auto-launch hooks across multiple mechanisms, or implementing the StartupApproved disable trick. Includes vendor-pattern checklists (Adobe, Docker, NVIDIA) and edge cases like WMI permanent event consumers and IFEO Debugger redirects.
 
+- `references/recovery-patterns.md` — Drive-failure data recovery (robocopy `/R:0`, ddrescue with map files), filesystem repair (chkdsk decision tree — when NEVER to `/f`), system file integrity (`sfc`, `DISM /Online /Cleanup-Image /RestoreHealth`), boot configuration repair (BCD, `bootrec`, UEFI bootloader rebuild), pagefile relocation, drive removal procedures (software offline → BIOS-disable → physical disconnect → destruction), and no-boot recovery (Windows RE, Safe Mode, System Restore). Load when responding to "my drive is dying" or any irreversible/destructive operation.
+
 ## Worked example
 
-A user reports "my PC takes minutes to boot and crashes sometimes." Workflow:
+A user reports "my PC takes minutes to boot and crashes sometimes." Full workflow:
 
 ```
 1. scripts/health-audit.ps1
    → identifies failing drive (Disk N), counts pre-crash storage resets,
-     surfaces crash history with BugCheck codes, inventories startup load
+     surfaces crash history with BugCheck codes, inventories startup load,
+     flags whether pagefile or search index lives on the failing drive
 
-2. scripts/crash-triage.ps1
+2. scripts/disk-health.ps1 -DiskNumber N  (drill-down on the suspect)
+   → SMART summary, full per-event-ID breakdown, threshold-vs-actual
+     verdict with specific indicators
+
+3. scripts/crash-triage.ps1
    → most recent crash decoded; pre-crash timeline shows storahci 129
      at T-2min → SMOKING GUNS: storage failure cascade
 
-3. scripts/safe-disable-startup.ps1 -List
-   → see current state of every Run-key entry across HKCU + HKLM (+ WOW64)
+4. scripts/drive-dependencies.ps1 -DriveLetter X  (the failing drive)
+   → no pagefile, no search index, no scheduled tasks, no services point
+     here → VERDICT: SAFE TO DISCONNECT
 
-4. scripts/safe-disable-startup.ps1 -Name 'Adobe Creative Cloud','Granola',...
+5. scripts/recover-clone.ps1 -Source X:\important -Destination Z:\rescue
+   → robocopy /R:0 clones irreplaceable data without pounding bad sectors
+
+6. scripts/safe-disable-startup.ps1 -List
+   → see current state of every Run-key + StartupFolder entry
+
+7. scripts/safe-disable-startup.ps1 -Name 'Adobe*','Granola','MuseHub'
    → bulk disable via StartupApproved overlay (no admin needed)
 
-5. (admin) Set-Service AdobeARMservice -StartupType Manual; Stop-Service ...
+8. (admin) Set-Service AdobeARMservice -StartupType Manual; Stop-Service ...
    → for the service-tier startup hooks the script doesn't touch
 
-6. Verdict to user:
-   - Disk N is dying — back up + replace (specific drive identified)
-   - N startup items disabled
-   - Crash risk eliminated by physically disconnecting failing drive
+9. (physical) Disconnect failing drive, reboot
 
-7. Confirm by reboot — re-run health-audit, verify zero storahci resets
+10. scripts/health-audit.ps1 (verification run)
+    → should show zero storahci resets in next 24h, faster boot time
 ```
 
 The data was always there in the System log — this skill just asks for it correctly.
