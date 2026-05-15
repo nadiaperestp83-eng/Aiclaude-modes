@@ -65,6 +65,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\_lib\common.ps1"
+. (Join-Path $PSScriptRoot '..\..\_lib\term.ps1')
+Initialize-Term
 
 # BugCheck quick-lookup (most common codes; full catalog in references/bugcheck-codes.md)
 $bugCheckNames = @{
@@ -191,35 +193,70 @@ if ($Json) {
         }
     } | ConvertTo-Json -Depth 5 | ForEach-Object { [Console]::Out.WriteLine($_) }
 } else {
-    Write-Section "Crash record: $($CrashTime.ToString('yyyy-MM-dd HH:mm:ss'))"
-    [Console]::Out.WriteLine("  BugCheck:  $bcHex  $bcName")
-    [Console]::Out.WriteLine("  Param1:    0x{0:X}" -f $param1)
-    [Console]::Out.WriteLine("  Param2:    0x{0:X}" -f $param2)
-    [Console]::Out.WriteLine("  Param3:    0x{0:X}" -f $param3)
-    [Console]::Out.WriteLine("  Param4:    0x{0:X}" -f $param4)
-    [Console]::Out.WriteLine("  PowerBtn:  $(if ($pwrBtn -ne 0) {'held (forced shutdown)'} else {'not pressed'})")
+    $indicator = $CrashTime.ToString('yyyy-MM-dd HH:mm:ss')
+    Write-TermLine (New-TermPanelOpen -Brand 'windows-ops' -Name 'windows-ops' -Subtitle 'crash-triage' -Indicator $indicator)
+    Write-TermLine (New-TermPanelVert)
+    Write-TermLine (New-TermSummary -Text "BugCheck $bcHex · $bcName")
+    Write-TermLine (New-TermPanelVert)
+
+    # PARAMETERS section
+    Write-TermLine (New-TermSection -State 'INFO' -Label 'parameters' -Count -1)
+    Write-TermLine (New-TermLeaf -Name 'Param1' -Meta ('0x{0:X}' -f $param1))
+    Write-TermLine (New-TermLeaf -Name 'Param2' -Meta ('0x{0:X}' -f $param2))
+    Write-TermLine (New-TermLeaf -Name 'Param3' -Meta ('0x{0:X}' -f $param3))
+    Write-TermLine (New-TermLeaf -Name 'Param4' -Meta ('0x{0:X}' -f $param4))
+    $pwrText = if ($pwrBtn -ne 0) { 'held (forced shutdown)' } else { 'not pressed' }
+    Write-TermLine (New-TermLeaf -Name 'PowerButton' -Meta $pwrText -IsLast)
     if ($causeHint) {
-        [Console]::Out.WriteLine("")
-        [Console]::Out.WriteLine("  Cause hint:  $causeHint")
+        Write-TermLine (New-TermAlert -Severity warning -Text $causeHint)
     }
+    Write-TermLine (New-TermPanelVert)
 
-    Write-Section "Pre-crash timeline ($WindowMinutes min before crash)"
-    if (-not $preEvents) {
-        [Console]::Out.WriteLine("  (no warning/error/critical events in window — sudden hang or instant fault)")
+    # TIMELINE section
+    if ($preEvents) {
+        Write-TermLine (New-TermSection -State 'WARN' -Label "pre-crash timeline" -Count $preEvents.Count)
+        $idxLast = $preEvents.Count - 1
+        for ($i = 0; $i -lt $preEvents.Count; $i++) {
+            $e = $preEvents[$i]
+            $deltaSec = [int]($CrashTime - $e.TimeCreated).TotalSeconds
+            $deltaStr = if ($deltaSec -ge 60) {
+                "T-{0}m{1:00}s" -f ([math]::Floor($deltaSec/60)), ($deltaSec % 60)
+            } else {
+                "T-{0}s" -f $deltaSec
+            }
+            $msg = Format-EventMessage -Message $e.Message -MaxLength 50
+            Write-TermLine (New-TermLeaf -Name "$($e.ProviderName) $($e.Id)" -Meta $msg -Age $deltaStr -IsLast:($i -eq $idxLast) -NameColWidth 24 -MetaColWidth 50)
+        }
+        Write-TermLine (New-TermPanelVert)
     } else {
-        foreach ($e in $preEvents) {
-            $tStr = $e.TimeCreated.ToString('HH:mm:ss')
-            $msg  = Format-EventMessage -Message $e.Message -MaxLength 90
-            [Console]::Out.WriteLine(("  {0}  [{1,-3}] {2,-32} Id={3,-5} {4}" -f $tStr, $e.LevelDisplayName.Substring(0,3), $e.ProviderName.Substring(0,[Math]::Min(32,$e.ProviderName.Length)), $e.Id, $msg))
-        }
+        Write-TermLine (New-TermSection -State 'WARN' -Label "pre-crash timeline" -Count 0)
+        Write-TermLine (New-TermHint -Text 'no warning/error events in window — sudden hang or instant fault')
+        Write-TermLine (New-TermPanelVert)
     }
 
+    # SMOKING GUNS section
     if ($smokingGuns) {
-        Write-Section "SMOKING GUNS"
-        foreach ($g in $smokingGuns) {
-            [Console]::Out.WriteLine("  - $g")
+        Write-TermLine (New-TermSection -State 'FAILING' -Label 'smoking guns' -Count $smokingGuns.Count)
+        $idxLast = $smokingGuns.Count - 1
+        for ($i = 0; $i -lt $smokingGuns.Count; $i++) {
+            Write-TermLine (New-TermLeaf -Name $smokingGuns[$i] -IsLast:($i -eq $idxLast) -NameColWidth 80 -RailColWidth 0 -MetaColWidth 0)
         }
+        Write-TermLine (New-TermPanelVert)
     }
+
+    # Footer
+    $health = if ($smokingGuns) {
+        New-TermHealth -State 'busted' -Text 'cascade'
+    } elseif ($bcCode -eq 0) {
+        New-TermHealth -State 'critical' -Text 'no bugcheck'
+    } else {
+        New-TermHealth -State 'warning' -Text 'decoded'
+    }
+    $hk = @(
+        (New-TermHotkey -Key 'D' -Verb 'drill')
+        (New-TermHotkey -Key '?' -Verb 'help')
+    ) | Join-TermHotkeys
+    Write-TermLine (New-TermPanelClose -Hotkeys $hk -Healths $health)
 }
 
 exit $script:EXIT_OK

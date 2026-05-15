@@ -50,6 +50,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\_lib\common.ps1"
+. (Join-Path $PSScriptRoot '..\..\_lib\term.ps1')
+Initialize-Term
 
 $elevated = Test-IsElevated
 $boots = New-Object System.Collections.Generic.List[hashtable]
@@ -168,63 +170,71 @@ if ($Json) {
     exit $script:EXIT_OK
 }
 
-Write-Section "Boot performance — last $LastN boots ($source)"
-
 if (-not $boots) {
     Write-Log -Level FAIL -Message "No boot events found"
     exit $script:EXIT_PRECONDITION
 }
 
-if ($source -eq 'diagnostics-perf') {
-    [Console]::Out.WriteLine("")
-    [Console]::Out.WriteLine(("  {0,-20}  {1,8}  {2,8}  {3,8}  {4}" -f 'Time', 'Total', 'Main', 'PostBoot', 'Status'))
-    [Console]::Out.WriteLine(("  {0,-20}  {1,8}  {2,8}  {3,8}  {4}" -f ('-' * 20), ('-' * 8), ('-' * 8), ('-' * 8), ('-' * 12)))
-    foreach ($b in $boots) {
-        $t = ([DateTime]$b.time).ToString('yyyy-MM-dd HH:mm')
-        $tot = if ($b.bootTotalSec -gt 0) { "$($b.bootTotalSec)s" } else { '?' }
-        $main = if ($b.bootMainSec -gt 0) { "$($b.bootMainSec)s" } else { '?' }
-        $post = if ($b.bootPostSec -gt 0) { "$($b.bootPostSec)s" } else { '?' }
-        $status = if ($b.degraded) { '[DEGRADED]' } else { '[OK]' }
-        [Console]::Out.WriteLine(("  {0,-20}  {1,8}  {2,8}  {3,8}  {4}" -f $t, $tot, $main, $post, $status))
-    }
+# Median + average for the summary line (whichever data we have)
+$mainSecs = $boots | ForEach-Object { $_.bootMainSec } | Where-Object { $_ -gt 0 }
+$median = if ($mainSecs.Count -ge 1) {
+    $sorted = $mainSecs | Sort-Object
+    $sorted[[math]::Floor($sorted.Count / 2)]
+} else { 0 }
+$avg = if ($mainSecs.Count -ge 1) {
+    [math]::Round(($mainSecs | Measure-Object -Average).Average, 1)
+} else { 0 }
 
-    # Average + median calc on healthy boots
-    $healthy = $boots | Where-Object { -not $_.degraded -and $_.bootTotalSec -gt 0 }
-    if ($healthy.Count -ge 3) {
-        $avg = [math]::Round(($healthy | Measure-Object bootTotalSec -Average).Average, 1)
-        $sorted = $healthy | Sort-Object bootTotalSec
-        $median = $sorted[[math]::Floor($sorted.Count / 2)].bootTotalSec
-        [Console]::Out.WriteLine("")
-        [Console]::Out.WriteLine("  Healthy-boot average: ${avg}s    median: ${median}s    ($($healthy.Count) of $($boots.Count) boots)")
-    }
-} else {
-    [Console]::Out.WriteLine("")
-    [Console]::Out.WriteLine("  Note: $($boots[0].note)")
-    [Console]::Out.WriteLine("")
-    [Console]::Out.WriteLine(("  {0,-20}  {1,12}" -f 'Time', 'Kernel→LogSvc'))
-    [Console]::Out.WriteLine(("  {0,-20}  {1,12}" -f ('-' * 20), ('-' * 12)))
-    foreach ($b in $boots) {
-        $t = ([DateTime]$b.time).ToString('yyyy-MM-dd HH:mm')
-        [Console]::Out.WriteLine(("  {0,-20}  {1,12}" -f $t, "$($b.bootMainSec)s"))
-    }
-    [Console]::Out.WriteLine("")
-    [Console]::Out.WriteLine("  For full boot timing including BootMainPath + BootPostBoot phases,")
-    [Console]::Out.WriteLine("  re-run as Administrator. The Diagnostics-Performance log requires elevation.")
+$sourceLabel = if ($source -eq 'diagnostics-perf') { 'full data' } else { 'fallback mode' }
+Write-TermLine (New-TermPanelOpen -Brand 'windows-ops' -Name 'windows-ops' -Subtitle 'boot-perf' -Indicator $sourceLabel)
+Write-TermLine (New-TermPanelVert)
+Write-TermLine (New-TermSummary -Text "$($boots.Count) boots · median ${median}s · avg ${avg}s")
+if (-not $elevated -and $source -ne 'diagnostics-perf') {
+    Write-TermLine (New-TermHint -Text 'run as Administrator for full Diagnostics-Performance log (boot phases + slow-component flags)')
 }
+Write-TermLine (New-TermPanelVert)
 
-# Slow components
+Write-TermLine (New-TermSection -State 'INFO' -Label 'boot timeline' -Count $boots.Count)
+# Find slowest in window for highlighting
+$slowestSec = ($mainSecs | Measure-Object -Maximum).Maximum
+$idxLast = $boots.Count - 1
+for ($i = 0; $i -lt $boots.Count; $i++) {
+    $b = $boots[$i]
+    $t = ([DateTime]$b.time).ToString('yyyy-MM-dd HH:mm')
+    $secVal = if ($b.bootMainSec -gt 0) { $b.bootMainSec } else { 0 }
+    # Capacity pip bar: relative to 20-second ceiling (anything ≥80% = red)
+    $bar = New-TermPipBar -Type capacity -Filled ([int]($secVal * 5)) -Total 100
+    $meta = "${secVal}s"
+    if ($b.degraded) { $meta += ' [DEGRADED]' }
+    Write-TermLine (New-TermLeaf -Name $t -Rail $bar -Meta $meta -IsLast:($i -eq $idxLast) -NameColWidth 20)
+    if ($secVal -eq $slowestSec -and $boots.Count -gt 3 -and $secVal -gt 0) {
+        Write-TermLine (New-TermAlert -Severity warning -Text "slowest in window · ${secVal}s vs median ${median}s")
+    }
+}
+Write-TermLine (New-TermPanelVert)
+
+# Slow components section
 $recentSlow = $slowComponents | Sort-Object { [DateTime]$_.time } -Descending | Select-Object -First 10
 if ($recentSlow) {
-    Write-Section "Slow components flagged at recent boots"
-    foreach ($s in $recentSlow) {
-        $t = ([DateTime]$s.time).ToString('yyyy-MM-dd HH:mm')
+    Write-TermLine (New-TermSection -State 'WARN' -Label 'slow components' -Count $recentSlow.Count)
+    $idxLast = $recentSlow.Count - 1
+    for ($i = 0; $i -lt $recentSlow.Count; $i++) {
+        $s = $recentSlow[$i]
         $delay = if ($s.delaySec) { "$($s.delaySec)s" } else { '?' }
-        [Console]::Out.WriteLine(("  {0}  [{1,-7}]  {2,-8}  {3}" -f $t, $s.kind, $delay, $s.name))
+        $when = ([DateTime]$s.time).ToString('MM-dd HH:mm')
+        Write-TermLine (New-TermLeaf -Name "[$($s.kind)] $($s.name)" -Meta $delay -Age $when -IsLast:($i -eq $idxLast) -NameColWidth 36)
     }
-    [Console]::Out.WriteLine("")
-    [Console]::Out.WriteLine("  These components exceeded the system's 'fast boot' threshold at the boots shown.")
-    [Console]::Out.WriteLine("  Repeat offenders are prime candidates for disabling via safe-disable-startup.ps1")
-    [Console]::Out.WriteLine("  (apps) or Set-Service -StartupType Manual (services) or Disable-ScheduledTask.")
+    Write-TermLine (New-TermAlert -Severity warning -Text 'repeat offenders → safe-disable-startup.ps1 (apps) or Set-Service -StartupType Manual (services)')
+    Write-TermLine (New-TermPanelVert)
 }
+
+# Footer
+$health = if ($elevated -and $source -eq 'diagnostics-perf') {
+    New-TermHealth -State 'healthy' -Text 'full data'
+} else {
+    New-TermHealth -State 'pending' -Text 'fallback'
+}
+$hk = (New-TermHotkey -Key '?' -Verb 'help')
+Write-TermLine (New-TermPanelClose -Hotkeys $hk -Healths $health)
 
 exit $script:EXIT_OK
