@@ -322,42 +322,73 @@ Output follows the claude-mods diagnostic convention:
 
 ## Worked example
 
-A user reports "my PC takes minutes to boot and crashes sometimes." Full workflow:
+A user reports "my PC takes minutes to boot and crashes sometimes." Running `scripts/health-audit.ps1` produces a panel that follows the [Terminal Panel Design System](../../docs/TERMINAL-DESIGN.md):
 
 ```
-1. scripts/health-audit.ps1
-   → identifies failing drive (Disk N), counts pre-crash storage resets,
-     surfaces crash history with BugCheck codes, inventories startup load,
-     flags whether pagefile or search index lives on the failing drive
-
-2. scripts/disk-health.ps1 -DiskNumber N  (drill-down on the suspect)
-   → SMART summary, full per-event-ID breakdown, threshold-vs-actual
-     verdict with specific indicators
-
-3. scripts/crash-triage.ps1
-   → most recent crash decoded; pre-crash timeline shows storahci 129
-     at T-2min → SMOKING GUNS: storage failure cascade
-
-4. scripts/drive-dependencies.ps1 -DriveLetter X  (the failing drive)
-   → no pagefile, no search index, no scheduled tasks, no services point
-     here → VERDICT: SAFE TO DISCONNECT
-
-5. scripts/recover-clone.ps1 -Source X:\important -Destination Z:\rescue
-   → robocopy /R:0 clones irreplaceable data without pounding bad sectors
-
-6. scripts/safe-disable-startup.ps1 -List
-   → see current state of every Run-key + StartupFolder entry
-
-7. scripts/safe-disable-startup.ps1 -Name 'Adobe*','Granola','MuseHub'
-   → bulk disable via StartupApproved overlay (no admin needed)
-
-8. (admin) Set-Service AdobeARMservice -StartupType Manual; Stop-Service ...
-   → for the service-tier startup hooks the script doesn't touch
-
-9. (physical) Disconnect failing drive, reboot
-
-10. scripts/health-audit.ps1 (verification run)
-    → should show zero storahci resets in next 24h, faster boot time
+╭── 🩺 windows-ops · health-audit ──────────────────────────────────────────── TITAN ───●
+│
+├── 4 disks · 1 failing · 2 unclean shutdowns
+│
+├── failing (5)
+│   ├── [storage] Disk 1 (HGST HDN728080ALE6…   Failing: Event7=1943, Event154=1646 …
+│   ├── [storage] Controller resets             20 storahci controller resets in 60d
+│   ├── [crash] 2026-05-15 00:57                BugCheck=0x0 — hard power loss
+│   ├── [crash] 2026-05-11 00:12                BugCheck=0x0 — power button held
+│   └── [crash] Pattern                         2 unclean shutdowns — investigate PSU
+│   │   ▲ back up + disconnect Disk 1 (Y) — see recover-clone.ps1 and drive-deps.ps1
+│
+├── warn (2) · pass (7) · info (4)
+│
+╰── R refresh · D drill · ? help ──────────────────────── ⬤ storage  • 2 crashes ───●
 ```
 
-The data was always there in the System log — this skill just asks for it correctly.
+The verdict reads at a glance: storage is busted (⬤ — large, unmissable), two crashes recent (•), specific drive identified by `[Y]`, action items inlined under the critical alert with cross-script wayfinding. Drill into the suspect:
+
+```
+╭── 🩺 windows-ops · disk-health ──────────────────────────────────── Disk 1 / Y ───●
+│
+├── HGST HDN728080ALE604 · A4GNW91X · 7452 GB · HDD/SATA
+│
+├── FAILING (3)
+│   ├── Event 7 (bad block)              ▰▰▰▰▰▰▰▰▰▰      1943x
+│   ├── Event 154 (hw error)             ▰▰▰▰▰▰▰▰▰▰      1646x
+│   └── Controller resets                ▰▰▰▰▰▰▰▰▱▱      20x
+│   │   ▲ back up data, run drive-dependencies.ps1, then replace
+│
+╰── B back · C clone · ? help ────────────────────────────────────── ⬤ failing ───●
+```
+
+Pip bars show how many times over threshold each indicator runs. Before disconnecting, audit dependencies:
+
+```
+╭── 🩺 windows-ops · drive-dependencies ─────────────────────────────────── Y ───●
+│
+├── 0 system references · safe to disconnect
+│
+│   💡 no system mechanism references this drive
+│
+╰── B back · ? help ────────────────────────────────────────────────── • safe ───●
+```
+
+Three commands, three panels, complete decision tree. Then the same loop: `crash-triage.ps1` decodes the most recent crash with a T-relative pre-crash timeline; `safe-disable-startup.ps1 -List` panel-displays every Run-key / StartupFolder entry grouped by state; `recover-clone.ps1 -Source Y:\important -Destination Z:\rescue` clones with `robocopy /R:0` so retries don't accelerate the drive's death; `boot-perf.ps1` quantifies boot duration with capacity pip bars.
+
+The data was always there in the System log — this skill just asks for it correctly *and renders it like a proper instrument*.
+
+### Legacy workflow notes
+
+For non-panel verbose tracing add `-Verbose`. For machine-readable consumers add `-Json` (all scripts emit NDJSON / JSON suitable for `jq`). For piped contexts (no TTY) chrome rendering disables itself automatically and JSON-only output is appropriate.
+
+Full command sequence:
+
+```powershell
+scripts/health-audit.ps1                            # diagnose
+scripts/disk-health.ps1 -DriveLetter Y              # drill into suspect
+scripts/crash-triage.ps1                            # decode most recent crash
+scripts/drive-dependencies.ps1 -DriveLetter Y       # verify safe to disconnect
+scripts/recover-clone.ps1 -Source Y:\ -Destination Z:\rescue  # salvage data
+scripts/safe-disable-startup.ps1 -List              # audit startup state
+scripts/safe-disable-startup.ps1 -Name 'Adobe*','Granola','MuseHub'  # cull bloat
+Set-Service AdobeARMservice -StartupType Manual     # service-tier (admin)
+# (physical) disconnect failing drive, reboot
+scripts/health-audit.ps1                            # verify clean
+```
