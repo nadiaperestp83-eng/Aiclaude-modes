@@ -62,6 +62,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\_lib\common.ps1"
+. (Join-Path $PSScriptRoot '..\..\_lib\term.ps1')
+Initialize-Term
 
 # Resolve target disk
 $disks = Get-DiskMap
@@ -194,16 +196,24 @@ $thresholds = if ($isSsd) {
     @{ event7=50; event154=10; event51=5 }
 }
 
+# storahci controller resets are not reliably attributable to a specific
+# physical disk number (RaidPort enumeration doesn't always map 1:1 to
+# Disk N). Only count them toward THIS disk's verdict when the disk also
+# shows its own error events — otherwise they're system-wide noise that
+# would falsely blame healthy drives sharing the same controller.
+$thisDiskHasOwnErrors = ($ev7 + $ev154 + $ev51) -gt 0
+$attributedResets = if ($thisDiskHasOwnErrors) { $result.storahciResets } else { 0 }
+
 $failing = (
     $ev7   -gt $thresholds.event7   -or
     $ev154 -gt $thresholds.event154 -or
     $ev51  -gt $thresholds.event51  -or
-    $result.storahciResets -gt 5
+    $attributedResets -gt 5
 )
 $watch = (
     $ev7   -gt 5 -or
     $ev154 -gt 2 -or
-    $result.storahciResets -gt 0
+    $attributedResets -gt 0
 )
 
 if ($failing) {
@@ -211,73 +221,101 @@ if ($failing) {
     if ($ev7   -gt $thresholds.event7)   { $result.indicators += "Event 7 (bad block): $ev7 > $($thresholds.event7) threshold" }
     if ($ev154 -gt $thresholds.event154) { $result.indicators += "Event 154 (hw error): $ev154 > $($thresholds.event154) threshold" }
     if ($ev51  -gt $thresholds.event51)  { $result.indicators += "Event 51 (paging error): $ev51 > $($thresholds.event51) threshold" }
-    if ($result.storahciResets -gt 5)    { $result.indicators += "Controller resets: $($result.storahciResets) > 5 threshold" }
+    if ($attributedResets -gt 5)         { $result.indicators += "Controller resets: $attributedResets > 5 threshold" }
 } elseif ($watch) {
     $result.verdict = 'WATCHLIST'
     if ($ev7   -gt 5) { $result.indicators += "Event 7 elevated: $ev7" }
     if ($ev154 -gt 2) { $result.indicators += "Event 154 elevated: $ev154" }
-    if ($result.storahciResets -gt 0) { $result.indicators += "Controller resets: $($result.storahciResets)" }
+    if ($attributedResets -gt 0) { $result.indicators += "Controller resets: $attributedResets" }
 } else {
     $result.verdict = 'HEALTHY'
 }
+# Always retain the system-wide reset count for context, but flag separately
+$result.systemWideResets = $result.storahciResets
 
 # Output
 if ($Json) {
     [Console]::Out.WriteLine(($result | ConvertTo-Json -Depth 5))
 } else {
-    Write-Section "Disk $($target.Number): $($target.Model)"
-    [Console]::Out.WriteLine("  Type:     $($target.MediaType) / $($target.BusType)")
-    [Console]::Out.WriteLine("  Capacity: $($target.SizeGB) GB")
-    [Console]::Out.WriteLine("  Firmware: $($target.FirmwareVersion)")
-    [Console]::Out.WriteLine("  Serial:   $($target.SerialNumber)")
-    [Console]::Out.WriteLine("  Letters:  $($target.DriveLetters)")
-    [Console]::Out.WriteLine("  Reports:  $($target.HealthStatus)")
-    [Console]::Out.WriteLine("")
-    if ($result.smart) {
-        Write-Section "SMART reliability counters"
-        [Console]::Out.WriteLine("  Temp:     $($result.smart.temperatureC) C (max: $($result.smart.temperatureMax) C)")
-        [Console]::Out.WriteLine("  Wear:     $($result.smart.wearPct)%")
-        [Console]::Out.WriteLine("  Read err: $($result.smart.readErrors)  Write err: $($result.smart.writeErrors)")
-        [Console]::Out.WriteLine("  Hours:    $($result.smart.powerOnHours)  Cycles: $($result.smart.powerCycles)")
-    } else {
-        [Console]::Out.WriteLine("  SMART:    (Windows reliability counter unavailable for this drive)")
-        if ($smartctl) {
-            [Console]::Out.WriteLine("            smartctl installed but call failed — try: smartctl -A /dev/sdX")
-        } else {
-            [Console]::Out.WriteLine("            Install smartmontools for SMART access: scoop install smartmontools")
-        }
+    $indicator = "Disk $($target.Number) / $($target.DriveLetters)"
+    Write-TermLine (New-TermPanelOpen -Brand 'windows-ops' -Name 'windows-ops' -Subtitle 'disk-health' -Indicator $indicator)
+    Write-TermLine (New-TermPanelVert)
+    Write-TermLine (New-TermSummary -Text "$($target.Model) · $($target.FirmwareVersion) · $($target.SizeGB) GB · $($target.MediaType)/$($target.BusType)")
+    Write-TermLine (New-TermPanelVert)
+
+    # Verdict section header carries the state via section-color
+    $verdictState = switch ($result.verdict) {
+        'FAILING'   { 'FAILING' }
+        'WATCHLIST' { 'WARN' }
+        'HEALTHY'   { 'PASS' }
     }
 
-    Write-Section "Disk events ($Days days)"
-    if ($result.eventCounts.Count -eq 0) {
-        [Console]::Out.WriteLine("  No disk events for this disk in window.")
-    } else {
-        $result.eventCounts.GetEnumerator() | Sort-Object { [int]$_.Key } | ForEach-Object {
-            [Console]::Out.WriteLine("  Event $($_.Key):  $($_.Value) occurrences")
-        }
-    }
-    [Console]::Out.WriteLine("")
-    [Console]::Out.WriteLine("  Controller resets (storahci 129): $($result.storahciResets) over $Days days")
-
-    Write-Section "VERDICT: $($result.verdict)"
     if ($result.indicators) {
-        foreach ($i in $result.indicators) {
-            [Console]::Out.WriteLine("  - $i")
+        Write-TermLine (New-TermSection -State $verdictState -Label $result.verdict -Count $result.indicators.Count)
+        # Each indicator as a leaf with pip bar showing ratio over threshold
+        $idxLast = $result.indicators.Count - 1
+        for ($i = 0; $i -lt $result.indicators.Count; $i++) {
+            $ind = $result.indicators[$i]
+            # Parse indicator like "Event 7 (bad block): 1943 > 50 threshold"
+            $name = $ind
+            $bar = ''
+            $meta = ''
+            if ($ind -match '^(.+?):\s*(\d+)\s*>\s*(\d+)') {
+                $name = $matches[1].Trim()
+                $actual = [int]$matches[2]
+                $threshold = [int]$matches[3]
+                $ratio = [math]::Min(100, [int](100 * $threshold / [math]::Max($actual, 1)))
+                # Inverted score: lower ratio = worse (more times over threshold)
+                $bar = New-TermPipBar -Type capacity -Filled (100 - $ratio) -Total 100
+                $multiplier = [math]::Round($actual / [math]::Max($threshold, 1), 1)
+                $meta = "${actual}x"
+            } elseif ($ind -match '(\d+)') {
+                $meta = $matches[1]
+            }
+            Write-TermLine (New-TermLeaf -Name $name -Rail $bar -Meta $meta -IsLast:($i -eq $idxLast))
+        }
+        if ($result.verdict -eq 'FAILING') {
+            Write-TermLine (New-TermAlert -Severity critical -Text 'back up data, run drive-dependencies.ps1, then replace')
+        } elseif ($result.verdict -eq 'WATCHLIST') {
+            Write-TermLine (New-TermAlert -Severity warning -Text 'back up irreplaceable data, monitor weekly')
+        }
+        Write-TermLine (New-TermPanelVert)
+    } else {
+        Write-TermLine (New-TermSection -State 'PASS' -Label $result.verdict -Count -1)
+        Write-TermLine (New-TermLeaf -Name 'no failure indicators' -Meta "$Days-day window clean" -IsLast)
+        Write-TermLine (New-TermPanelVert)
+    }
+
+    # SMART section
+    Write-TermLine (New-TermSection -State 'INFO' -Label 'SMART' -Count -1)
+    if ($result.smart) {
+        Write-TermLine (New-TermLeaf -Name 'temperature' -Meta "$($result.smart.temperatureC) C (max: $($result.smart.temperatureMax))")
+        Write-TermLine (New-TermLeaf -Name 'wear' -Meta "$($result.smart.wearPct)%")
+        Write-TermLine (New-TermLeaf -Name 'read errors' -Meta "$($result.smart.readErrors)")
+        Write-TermLine (New-TermLeaf -Name 'write errors' -Meta "$($result.smart.writeErrors)")
+        Write-TermLine (New-TermLeaf -Name 'power on hours' -Meta "$($result.smart.powerOnHours)" -IsLast)
+    } else {
+        Write-TermLine (New-TermLeaf -Name 'reliability counter' -Meta 'unavailable' -IsLast)
+        if ($smartctl) {
+            Write-TermLine (New-TermHint -Text 'smartctl installed but call failed — try: smartctl -A /dev/sdX')
+        } else {
+            Write-TermLine (New-TermHint -Text 'scoop install smartmontools for SMART access')
         }
     }
-    [Console]::Out.WriteLine("")
-    switch ($result.verdict) {
-        'FAILING' {
-            [Console]::Out.WriteLine("  Recommended: back up data, run drive-dependencies.ps1, then replace.")
-        }
-        'WATCHLIST' {
-            [Console]::Out.WriteLine("  Recommended: back up irreplaceable data, monitor weekly.")
-        }
-        'HEALTHY' {
-            [Console]::Out.WriteLine("  Recommended: no action needed.")
-        }
+    Write-TermLine (New-TermPanelVert)
+
+    # Footer
+    $health = switch ($result.verdict) {
+        'FAILING'   { New-TermHealth -State 'busted' -Text 'failing' }
+        'WATCHLIST' { New-TermHealth -State 'warning' -Text 'watchlist' }
+        'HEALTHY'   { New-TermHealth -State 'healthy' -Text 'healthy' }
     }
-    [Console]::Out.WriteLine("")
+    $hk = @(
+        (New-TermHotkey -Key 'B' -Verb 'back')
+        (New-TermHotkey -Key 'C' -Verb 'clone')
+        (New-TermHotkey -Key '?' -Verb 'help')
+    ) | Join-TermHotkeys
+    Write-TermLine (New-TermPanelClose -Hotkeys $hk -Healths $health)
 }
 
 if ($result.verdict -eq 'FAILING') { exit $script:EXIT_VALIDATION }
