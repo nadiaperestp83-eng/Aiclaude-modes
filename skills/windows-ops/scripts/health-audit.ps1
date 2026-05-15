@@ -37,12 +37,15 @@
     Save audit findings as NDJSON for later processing.
 
 .NOTES
-    Exit codes:
-      0 success — audit completed, no critical findings
-      1 general error during audit
+    Exit codes (reflect whether the audit RAN, not what it found):
+      0 success — audit completed (findings reported via panel + JSON)
+      1 general error during audit (e.g. WinRM unreachable)
       2 usage error (bad arguments)
-      4 critical finding (failing drive, recent unexplained crashes)
       5 missing precondition (PowerShell version, required module)
+
+    Findings are in the output, not the exit code. Automation
+    consuming -Json output should branch on verdict + finding levels,
+    not $LASTEXITCODE.
 #>
 
 [CmdletBinding()]
@@ -486,6 +489,7 @@ if (-not $Json) {
     Write-TermLine (New-TermPanelClose -Hotkeys $hk -Healths $hl)
 }
 
-# Exit code semantics
-if ($failCount -gt 0) { exit $script:EXIT_VALIDATION }
+# Exit code: success means the audit RAN OK, regardless of findings.
+# Findings live in the panel output (stdout/stderr) and JSON. Automation
+# parsing the JSON should branch on verdict counts, not exit codes.
 exit $script:EXIT_OK

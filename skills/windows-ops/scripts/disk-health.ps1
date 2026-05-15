@@ -45,10 +45,12 @@
     Find the HGST drive and dump its error counts as JSON.
 
 .NOTES
-    Exit codes:
-      0 success — drive looks healthy
+    Exit codes (reflect whether the diagnostic RAN, not what it found):
+      0 success — diagnostic completed (verdict reported via panel + JSON)
       3 not found — no matching disk
-      4 validation — drive shows failure indicators
+
+    The drive's health verdict (HEALTHY / WATCHLIST / FAILING) is in
+    the panel output and JSON; check the verdict field, not $LASTEXITCODE.
 #>
 
 [CmdletBinding(DefaultParameterSetName='Number')]
@@ -318,5 +320,5 @@ if ($Json) {
     Write-TermLine (New-TermPanelClose -Hotkeys $hk -Healths $health)
 }
 
-if ($result.verdict -eq 'FAILING') { exit $script:EXIT_VALIDATION }
+# Verdict is in the panel and JSON output; exit 0 means the diagnostic ran.
 exit $script:EXIT_OK

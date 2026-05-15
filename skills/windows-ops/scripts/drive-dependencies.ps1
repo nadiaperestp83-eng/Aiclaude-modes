@@ -12,10 +12,13 @@
 
     Default output is a human-readable table. -Json emits structured.
 
-    Exit codes:
-      0 success
+    Exit codes (reflect whether the audit RAN, not what it found):
+      0 success — audit completed (verdict reported via panel + JSON)
       2 usage
       3 not found (no such drive)
+
+    The verdict (SAFE TO DISCONNECT / WARNINGS / DO NOT DISCONNECT) is
+    in the panel output and JSON 'verdict' field, not $LASTEXITCODE.
 
 .PARAMETER DriveLetter
     Single drive letter (e.g. 'Y'). Case-insensitive.
@@ -338,5 +341,5 @@ if ($Json) {
     Write-TermLine (New-TermPanelClose -Hotkeys $hk -Healths $health)
 }
 
-if ($criticalCount -gt 0) { exit $script:EXIT_VALIDATION }
+# Verdict is in the panel and JSON output; exit 0 means the audit ran.
 exit $script:EXIT_OK
