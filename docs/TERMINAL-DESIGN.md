@@ -101,14 +101,15 @@ Default width: **10 pips** = clean 10% increments. Override only when the data h
 
 #### Brand emoji registry
 
-| Tool   | Unicode | ASCII |
-| ------ | ------- | ----- |
-| fleet  | ⚡       | `[F]` |
-| forge  | 🔨       | `[B]` |
-| psql   | 🐘       | `[P]` |
-| watch  | 📡       | `[M]` |
-| deploy | 🚀       | `[D]` |
-| git    | 🌿       | `[G]` |
+| Tool         | Unicode | ASCII |
+| ------------ | ------- | ----- |
+| fleet        | ⚡       | `[F]` |
+| forge        | 🔨       | `[B]` |
+| psql         | 🐘       | `[P]` |
+| watch        | 📡       | `[M]` |
+| deploy       | 🚀       | `[D]` |
+| git          | 🌿       | `[G]` |
+| windows-ops  | 🩺       | `[H]` |
 
 #### Header indicators
 
@@ -703,14 +704,32 @@ Color map:
 
 ---
 
-## 9. Implementation — `skills/_lib/term.sh`
+## 9. Implementation — three siblings of the same spec
 
-The library is the single source of truth. Skills source it; nothing else needs to know about glyphs or colors.
+This spec is the single source of truth. Three implementations conform to it, one per language family used in the claude-mods toolkit:
+
+| Implementation | Location | Consumers |
+|----------------|----------|-----------|
+| **Bash** | `skills/_lib/term.sh` | `fleet-ops`, any future bash-based skill |
+| **PowerShell** | `skills/_lib/term.ps1` | `windows-ops`, any future PowerShell skill |
+| **Python** | inline `Term` class + module functions in each Python skill | `summon`, any future Python skill |
+
+When extending the registries (new brand emoji, new health state, new diagram icon) update all three. The bash + PowerShell ports share variable names directly (`TERM_BRAND` / `$Script:TermBrand`); the Python implementations carry their own lookup tables but the keys must match.
+
+### Bash usage
 
 ```bash
 LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../_lib" && pwd)"
 . "$LIB/term.sh"
 term_init
+```
+
+### PowerShell usage
+
+```powershell
+$LibDir = Join-Path $PSScriptRoot '..\..\_lib'
+. (Join-Path $LibDir 'term.ps1')
+Initialize-Term
 ```
 
 ### Helpers

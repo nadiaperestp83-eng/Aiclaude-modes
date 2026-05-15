@@ -63,6 +63,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\_lib\common.ps1"
+. (Join-Path $PSScriptRoot '..\..\_lib\term.ps1')
+Initialize-Term
 
 # Map: registry path -> StartupApproved variant for the overlay
 $pathVariantMap = @(
@@ -123,22 +125,77 @@ function Get-CurrentState {
 # ─────────────────────────────────────────────────────────────────────
 if ($List) {
     $allEntries = Get-RunEntries
-    foreach ($e in $allEntries) {
+    $rows = foreach ($e in $allEntries) {
         $state = Get-CurrentState -EntryName $e.Name -Variant $e.Variant
-        $row = [PSCustomObject]@{
+        [PSCustomObject]@{
             Name    = $e.Name
             State   = $state
             Variant = $e.Variant
             Source  = (Split-Path $e.Path -Leaf) + '\' + (Split-Path $e.Path -Parent | Split-Path -Leaf)
             Command = $e.Command -replace '"',''
         }
-        if ($Json) {
-            [Console]::Out.WriteLine(($row | ConvertTo-Json -Compress))
-        } else {
-            $tag = switch ($state) { 'disabled' {'[X]'} 'enabled' {'[ ]'} default {'[?]'} }
-            [Console]::Out.WriteLine(("{0} {1,-40} {2,-7} {3}" -f $tag, $e.Name.Substring(0, [Math]::Min(40, $e.Name.Length)), $state, $e.Variant))
-        }
     }
+
+    if ($Json) {
+        foreach ($r in $rows) {
+            [Console]::Out.WriteLine(($r | ConvertTo-Json -Compress))
+        }
+        exit $script:EXIT_OK
+    }
+
+    # Group by state for the panel
+    $enabled  = $rows | Where-Object { $_.State -eq 'enabled' -or $_.State -eq 'unmanaged' }
+    $disabled = $rows | Where-Object { $_.State -eq 'disabled' }
+    $unknown  = $rows | Where-Object { $_.State -ne 'enabled' -and $_.State -ne 'unmanaged' -and $_.State -ne 'disabled' }
+
+    Write-TermLine (New-TermPanelOpen -Brand 'windows-ops' -Name 'windows-ops' -Subtitle 'safe-disable-startup' -Indicator "$($rows.Count) entries")
+    Write-TermLine (New-TermPanelVert)
+    $summary = "$($enabled.Count) active · $($disabled.Count) disabled"
+    if ($unknown.Count -gt 0) { $summary += " · $($unknown.Count) unknown" }
+    Write-TermLine (New-TermSummary -Text $summary)
+    Write-TermLine (New-TermPanelVert)
+
+    if ($enabled) {
+        Write-TermLine (New-TermSection -State 'PASS' -Label 'active' -Count $enabled.Count)
+        $last = $enabled[-1]
+        foreach ($e in $enabled) {
+            $variant = switch ($e.Variant) { 'Run' { 'HKCU/HKLM' } 'Run32' { 'WOW64' } 'StartupFolder' { 'startup folder' } default { $e.Variant } }
+            Write-TermLine (New-TermLeaf -Name $e.Name -Meta $variant -IsLast:($e -eq $last))
+        }
+        Write-TermLine (New-TermPanelVert)
+    }
+
+    if ($disabled) {
+        Write-TermLine (New-TermSection -State 'WARN' -Label 'disabled' -Count $disabled.Count)
+        $last = $disabled[-1]
+        foreach ($e in $disabled) {
+            $variant = switch ($e.Variant) { 'Run' { 'HKCU/HKLM' } 'Run32' { 'WOW64' } 'StartupFolder' { 'startup folder' } default { $e.Variant } }
+            Write-TermLine (New-TermLeaf -Name $e.Name -Meta $variant -IsLast:($e -eq $last))
+        }
+        Write-TermLine (New-TermPanelVert)
+    }
+
+    if ($unknown) {
+        Write-TermLine (New-TermSection -State 'FAILING' -Label 'unknown state' -Count $unknown.Count)
+        $last = $unknown[-1]
+        foreach ($e in $unknown) {
+            $variant = switch ($e.Variant) { 'Run' { 'HKCU/HKLM' } 'Run32' { 'WOW64' } 'StartupFolder' { 'startup folder' } default { $e.Variant } }
+            Write-TermLine (New-TermLeaf -Name $e.Name -Meta $variant -Age $e.State -IsLast:($e -eq $last))
+            Write-TermLine (New-TermAlert -Severity warning -Text 'partial/corrupt StartupApproved entry — verify with Task Manager')
+        }
+        Write-TermLine (New-TermPanelVert)
+    }
+
+    $hk = @(
+        (New-TermHotkey -Key 'E' -Verb 'enable')
+        (New-TermHotkey -Key 'D' -Verb 'disable')
+        (New-TermHotkey -Key '?' -Verb 'help')
+    ) | Join-TermHotkeys
+    $hl = @(
+        (New-TermHealth -State 'healthy' -Text "$($enabled.Count) active")
+    ) | Join-TermHealths
+    Write-TermLine (New-TermPanelClose -Hotkeys $hk -Healths $hl)
+
     exit $script:EXIT_OK
 }
 

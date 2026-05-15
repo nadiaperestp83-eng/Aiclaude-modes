@@ -56,6 +56,7 @@ declare -A TERM_BRAND=(
   [watch]="📡|[M]"
   [deploy]="🚀|[D]"
   [git]="🌿|[G]"
+  [windows-ops]="🩺|[H]"
 )
 
 declare -A TERM_HEALTH_GLYPH=(
