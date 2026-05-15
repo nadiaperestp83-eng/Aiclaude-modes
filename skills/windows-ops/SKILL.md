@@ -1,0 +1,335 @@
+---
+name: windows-ops
+description: "Comprehensive Windows workstation operations - diagnose slow boot, identify failing drives, decode BSOD crashes, manage startup apps, audit event logs. Use for: Windows is slow, slow bootup, won't boot, blue screen, BSOD, kernel crash, drive failing, SMART errors, disk errors, Event 41, Event 129, storahci reset, BugCheck, CRITICAL_PROCESS_DIED, crash dump, MEMORY.DMP, minidump, msconfig, services.msc, registry Run keys, StartupApproved, scheduled tasks at logon, slow login, high CPU at boot, Adobe startup, Docker startup, disable startup app."
+license: MIT
+allowed-tools: "Read Write Bash"
+metadata:
+  author: claude-mods
+  related-skills: net-ops, debug-ops, perf-ops
+---
+
+# windows-ops
+
+## Helps with
+
+Slow boot on a Windows machine that used to be fast — bloat accumulation across the five startup mechanisms (registry Run keys, services, scheduled tasks, startup folders, group policy). The same machine still boots fast once those are inventoried and trimmed.
+
+Failing drives that nobody's spotted yet. The signal lives in System log Events `7` / `52` / `153` / `154` (disk bad block, paging error, retry, hardware error) and `storahci` Event `129` ("Reset to device, \Device\RaidPortN, was issued"). Healthy drives produce zero of these — hundreds in a month means active failure even when SMART still claims "Healthy."
+
+Crashes with no obvious cause. Event 41 (Kernel-Power) carries the BugCheck code at `Properties[0]` and four parameters at `Properties[1-4]`. A `0xEF` (CRITICAL_PROCESS_DIED), `0xD1` (DRIVER_IRQL), `0x124` (WHEA uncorrectable), or `0x0` (no bugcheck recorded → hard power loss) each implies a completely different fix.
+
+"My PC is slow" diagnosed by chasing the wrong symptom. Task Manager shows what's running NOW; the System log shows what failed at boot, what's been crashing, and what storage events preceded each crash. Always audit before treating.
+
+Unable to disable an HKLM startup entry because the user isn't an Administrator. The `StartupApproved` registry mechanism — what Task Manager's "Disable" button actually does — flips one byte in `HKCU\...\Explorer\StartupApproved\Run` and works without elevation, even for HKLM entries.
+
+BSOD analysis without a dump file. Pagefile too small, or hard power loss skipped the dump-write. `CrashDumpEnabled` registry key + pagefile size + free space on system drive determine whether the next crash gets diagnosed at all.
+
+Pre-crash timeline correlation. The events in the 10 minutes BEFORE Event 41 are where the story is. `storahci` resets before a crash → storage failure cascade. `nvlddmkm` / `igdkmd64` warnings before crash → GPU driver hang. WHEA events before crash → hardware fault.
+
+Identifying which physical drive is failing when the symptom is "Disk 1" or "\Device\Harddisk1" in an event message. Maps physical disk number ↔ drive letter ↔ controller port ↔ model + firmware, so the user knows which SATA cable to unplug.
+
+Adobe Creative Cloud / Docker Desktop / Slack / Electron app bloat eating boot time. Each ships with multiple startup entries (registry + services + scheduled tasks) that all need disabling to fully stop the auto-launch.
+
+## The Universal Insight
+
+**Windows tells you what's wrong if you ask the right log in the right way.** Most users (and most tutorials) reach for Task Manager. The actual diagnostic signal lives in the Event Log, the Registry's StartupApproved key, the storage driver's reset events, and the kernel's bugcheck records. This skill packages the queries that turn noise into a verdict.
+
+The most common diagnostic failure: treating symptoms in isolation. "Slow boot" → disable startup apps. "BSOD" → reinstall drivers. "Random crashes" → memtest. These are reasonable last resorts, but the data to identify the *actual* cause is sitting in the System log untouched. Always audit before treating.
+
+## The Diagnostic Ladder
+
+Walk down the layers in order. Each rung has a binary outcome:
+
+```
+1. Hardware errors    — WHEA-Logger events (CPU/RAM/PCIe-level faults)
+2. Storage health     — disk events 7/52/153/154, storahci 129 (controller reset)
+3. Crash record       — Event 41 (Kernel-Power) + BugCheck code + dump files
+4. Pre-crash timeline — events in N minutes before each crash
+5. Boot inventory     — all 5 startup mechanisms (registry, services, tasks, folders, group policy)
+6. Resource pressure  — top CPU/RAM/IO consumers
+7. Verdict            — what's failing, what to do
+```
+
+The most interesting failures cluster at rung 2 (storage) and rung 5 (startup bloat). The least interesting (but most-treated) is rung 6.
+
+## Workflow
+
+### 1. Run the comprehensive audit
+
+```powershell
+scripts/health-audit.ps1
+```
+
+Produces a verdict block: hardware errors, storage health per disk, recent crashes, top resource consumers, startup inventory. Scan for `[FAIL]` markers — that's where to drill.
+
+### 2. Drill into the failing layer
+
+| Symptom | Script |
+|---|---|
+| Storage errors flagged | `scripts/disk-health.ps1` — per-drive SMART + event correlation |
+| Recent crash | `scripts/crash-triage.ps1 -CrashTime <datetime>` — pre-crash timeline + BugCheck decode |
+| Slow boot / many startup items | `scripts/startup-audit.ps1` — all 5 mechanisms inventoried |
+| Need to query specific events | `scripts/event-search.ps1 -Provider <name> -Hours <N>` — flexible filter helper |
+
+### 3. Apply the minimum reversible fix
+
+| Action | Script |
+|---|---|
+| Disable startup app (no admin needed) | `scripts/safe-disable-startup.ps1 -Name <regname>` |
+| Set service to Manual (admin) | `Set-Service <name> -StartupType Manual; Stop-Service <name>` |
+| Disable scheduled task | `Disable-ScheduledTask -TaskName <name>` |
+
+All disables are reversible — the StartupApproved registry mechanism flips one byte; re-enabling is the inverse.
+
+## Storage Health & Failure Detection
+
+The single highest-yield audit. Failing drives cause slow boots (Windows times out probing them), instability (controller resets cascade into kernel hangs), and crashes (I/O failures kill critical processes). Three independent data sources to cross-reference:
+
+### Disk error events
+
+```powershell
+Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='disk'; StartTime=(Get-Date).AddDays(-30)} |
+    Group-Object Id | Select-Object Count, Name
+```
+
+Event ID catalog (full reference in `references/storage-events.md`):
+
+| ID | Meaning | Severity |
+|----|---------|----------|
+| **7** | "The device, \Device\HarddiskN\DR1, has a bad block" | **High** — sectors going bad |
+| **51** | "An error was detected on device during a paging operation" | High |
+| **52** | "Write cache enabled" | Informational |
+| **153** | "IO operation at LBA X was retried" | Medium |
+| **154** | "IO operation at LBA X failed due to a hardware error" | **High** — Windows' explicit hardware verdict |
+
+Even 10 events of ID 7 or 154 in a month is a strong failure signal. Hundreds = drive replacement is urgent.
+
+### Storage controller resets
+
+```powershell
+Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='storahci'; Id=129; StartTime=(Get-Date).AddDays(-60)}
+```
+
+`storahci` Event 129 ("Reset to device, \Device\RaidPortN, was issued") means the drive stopped responding and the driver had to reset the controller. **Healthy = zero events.** Any non-zero count warrants investigation. >5 in a month = active failure.
+
+### Disk → drive letter mapping
+
+The error message identifies `\Device\HarddiskN` — to find the actual drive:
+
+```powershell
+Get-Disk | Select-Object Number, FriendlyName, BusType, HealthStatus, FirmwareVersion,
+    @{N='SizeGB';E={[math]::Round($_.Size/1GB,0)}}
+```
+
+`Number` matches the `N` in `\Device\HarddiskN`. Cross-reference with `Get-Partition -DiskNumber N` for drive letter.
+
+### SMART reliability counters
+
+```powershell
+Get-PhysicalDisk | ForEach-Object {
+    $_ | Get-StorageReliabilityCounter | Select-Object Temperature, Wear, ReadErrorsTotal, WriteErrorsTotal, PowerOnHours
+}
+```
+
+Returns blank on some NVMe drives due to Windows driver limitations — fall back to vendor tools (Samsung Magician, CrystalDiskInfo) or `smartctl` from smartmontools if installed.
+
+## Boot Performance & Startup Management
+
+Windows has **five separate startup mechanisms**, each requiring different tooling. Task Manager only shows two of them. Full inventory in `references/startup-mechanisms.md`.
+
+| Mechanism | Where | How to inspect | How to disable |
+|-----------|-------|----------------|----------------|
+| Registry Run keys | `HKCU/HKLM\...\Run` (+ WOW6432) | `Get-ItemProperty` | `StartupApproved` binary flag |
+| Services | Service Control Manager | `Get-Service` | `Set-Service -StartupType Manual` (admin) |
+| Scheduled Tasks at logon | Task Scheduler | `Get-ScheduledTask` | `Disable-ScheduledTask` |
+| Startup folder shortcuts | `%APPDATA%\...\Startup\` + AllUsers | `Get-ChildItem` | Delete or rename .lnk |
+| Group Policy startup scripts | `HKLM\...\Policies\Scripts` | Group Policy Editor / `gpresult` | (rare on workstations) |
+
+### The StartupApproved trick (disable HKLM entries without admin)
+
+Task Manager's "Disable" button writes a binary flag to:
+
+```
+HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run    (HKLM 64-bit entries)
+HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run32  (HKLM WOW6432 entries)
+HKCU\...\StartupApproved\StartupFolder                                          (startup folder shortcuts)
+```
+
+The value is 12 bytes: `[status byte] [00 00 00] [8-byte FILETIME timestamp]`. Status = `0x02` enabled, `0x03` disabled. Writing this to HKCU lets a non-admin user disable HKLM startup entries for themselves. The script `scripts/safe-disable-startup.ps1` automates this.
+
+### Boot duration measurement
+
+Windows 11 stores boot performance in `Microsoft-Windows-Diagnostics-Performance/Operational` log (admin to read). Without admin, infer from the gap between Event 12 (`The operating system started at...`) and Event 6005 (`The Event log service was started`), then to first user-mode event. Typically:
+
+- Healthy SSD system: 15–25 seconds to login screen
+- Healthy + many startup apps: 30–60 seconds to usable desktop
+- Failing storage: 60+ seconds, with stalls
+
+## Crash Analysis & Dump Triage
+
+### Event 41 (Kernel-Power) decoding
+
+This is **the** crash record. Properties array layout:
+
+| Index | Field | What it means |
+|-------|-------|---------------|
+| 0 | BugcheckCode | The stop code (0x0 = no bugcheck recorded → hard power loss or hang) |
+| 1 | BugcheckParameter1 | First parameter (often a memory address) |
+| 2-4 | BugcheckParameter2-4 | Additional parameters |
+| 5 | SleepInProgress | True if crash during sleep transition |
+| 6 | PowerButtonTimestamp | Non-zero = power button was held |
+
+Common BugCheck codes (full reference in `references/bugcheck-codes.md`):
+
+| Code | Name | Typical cause |
+|------|------|---------------|
+| `0x0` | (no bugcheck) | Hard power loss, total hang, hardware-level failure |
+| `0xEF` | CRITICAL_PROCESS_DIED | A critical system process (csrss/services/wininit) was killed |
+| `0xD1` | DRIVER_IRQL_NOT_LESS_OR_EQUAL | Bad driver accessed bad memory address |
+| `0x50` | PAGE_FAULT_IN_NONPAGED_AREA | Bad memory or storage I/O for pagefile |
+| `0x124` | WHEA_UNCORRECTABLE_ERROR | Hardware-level CPU/cache/PCIe error |
+| `0x7E` | SYSTEM_THREAD_EXCEPTION_NOT_HANDLED | Driver crashed |
+| `0x9F` | DRIVER_POWER_STATE_FAILURE | Driver hung during sleep/wake |
+
+### Pre-crash timeline correlation
+
+The crash record alone rarely tells you the cause. The **events in the 10 minutes before the crash** are where the story is. Use:
+
+```powershell
+scripts/crash-triage.ps1 -CrashTime '2026-05-15 00:57:50' -WindowMinutes 10
+```
+
+Look for:
+- `storahci` Event 129 (drive reset) before crash → storage failure cascade
+- `nvlddmkm` / `igdkmd64` warnings before crash → GPU driver hang
+- `WHEA-Logger` events before crash → hardware-level fault
+- Sudden silence (no events for >30s before crash) → total system hang
+
+### Dump configuration audit
+
+```powershell
+Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\CrashControl' |
+    Select-Object CrashDumpEnabled, DumpFile, MinidumpDir, AutoReboot
+```
+
+`CrashDumpEnabled` values: `0` = None, `1` = Complete, `2` = Kernel, `3` = Small (minidump), `7` = Automatic.
+
+If `0` or no dumps exist after recent crashes:
+- Pagefile may be too small (needs >RAM size for complete dump, or >256MB for minidump)
+- Power loss crashes can't write dumps regardless — RAM contents are gone before disk write
+- Some BSODs in early boot also skip dump-writing
+
+## Event Log Query Patterns
+
+`Get-WinEvent` with `-FilterHashtable` is dramatically faster than `Where-Object` filtering. Keys that work:
+
+| Key | Type | Example |
+|-----|------|---------|
+| `LogName` | string or array | `'System'`, `@('System','Application')` |
+| `ProviderName` | string or array | `'storahci'`, `'Microsoft-Windows-Kernel-Power'` |
+| `Id` | int or array | `41`, `@(7,153,154)` |
+| `Level` | int or array | `1`=Critical, `2`=Error, `3`=Warning, `4`=Information |
+| `StartTime` | DateTime | `(Get-Date).AddDays(-7)` |
+| `EndTime` | DateTime | `(Get-Date)` |
+
+Use `scripts/event-search.ps1` for common patterns (events in time window, by provider, correlated across logs).
+
+## Common Failure Modes
+
+| Symptom | First check | Common cause |
+|---------|-------------|--------------|
+| Slow boot, used to be fast | `startup-audit.ps1` | Bloat accumulation (Docker, Adobe CC, Electron apps) |
+| Slow boot, getting worse | `disk-health.ps1` | Failing drive — Windows waiting on probe timeouts |
+| Random freezes + hard restarts | `disk-health.ps1` + `crash-triage.ps1` | storahci resets cascading into kernel hang |
+| BSOD on wake from sleep | `crash-triage.ps1` (BugCheck `0x9F`) | Driver power state failure (often GPU, USB) |
+| BSOD with WHEA before it | `crash-triage.ps1` (BugCheck `0x124`) | Hardware fault — RAM, CPU, PCIe lane |
+| Sluggish but not crashing | `health-audit.ps1` performance section | Background process pileup |
+| Login takes minutes | `startup-audit.ps1` | Slow startup item synchronously blocking shell |
+
+## Recovery Patterns
+
+### Cloning from a failing drive
+
+**Never run `chkdsk /f` on a failing drive** — repair operations write to bad sectors and can finish the drive off. Image first, repair the image second.
+
+```powershell
+# Healthy-side clone with no retries (fast, skips bad sectors)
+robocopy "Y:\important" "Z:\backup\important" /MIR /R:0 /W:0 /XJ /NDL /LOG:clone.log
+```
+
+For bit-level recovery from a drive with many bad sectors, use `ddrescue` (via WSL or live Linux USB) with a map file so the operation is resumable. Documented in `references/storage-events.md`.
+
+### Physically removing a failing drive
+
+If a drive is causing boot stalls or crashes:
+1. Identify it via `disk-health.ps1`
+2. Verify nothing critical points at it (`scripts/disk-health.ps1 -CheckDependencies <drive-letter>`)
+3. Physically disconnect SATA cable OR disable in BIOS OR set offline in `diskpart`
+4. Reboot — boot time should drop significantly, controller resets should stop
+
+## Voice & Output Style
+
+Output follows the claude-mods diagnostic convention:
+
+- `[PASS]` / `[FAIL]` / `[WARN]` / `[INFO]` prefixes for scan rows
+- Verdict block at the bottom with specific findings + recommended actions
+- Drive identifications include physical disk number, model, capacity, drive letter
+- Crash references include UTC timestamp, BugCheck code, primary parameter, suspected cause
+- No marketing language, no emojis in scripts (reserved for SKILL.md prose where useful)
+
+## What This Skill Doesn't Cover
+
+- **Network diagnostics** → use `net-ops`
+- **Specific application performance profiling** → use `perf-ops`
+- **Source-code-level debugging** → use `debug-ops`
+- **Kernel dump file analysis with WinDbg** — too specialised for this skill; covered by reference doc pointers only
+- **Group Policy diagnostics** — relevant for enterprise but rare on workstations
+- **Linux-on-Windows (WSL) issues** — separate domain
+
+## Cross-References
+
+| When | Use |
+|------|-----|
+| Need to triage a remote Windows box | `net-ops` reverse-probe pattern adapts directly |
+| Crash is networking-related | Combine with `net-ops` for DNS / VPN driver issues |
+| Multiple machines exhibit same pattern | Run `health-audit.ps1` on each, diff the outputs |
+
+## References
+
+- `references/storage-events.md` — full event ID catalog for `disk`, `storahci`, `Ntfs`, `partmgr`, `volmgr` providers. Load when investigating disk errors, mapping `\Device\Harddisk N` references, or interpreting LBA-level I/O failures. Includes severity triage thresholds (per-month counts that indicate failure for HDD vs SSD) and the query recipes the audit script uses.
+
+- `references/bugcheck-codes.md` — Windows BSOD stop-code catalog covering the codes that actually appear on workstations. Load when decoding a non-trivial Event 41, analyzing a minidump's stop code, or matching a symptom ("crashes during sleep", "random reboot no dump", "crashes during file copy") to a likely cause. Covers `0xEF`, `0xD1`, `0x124`, `0x50`, `0x7A`, `0x9F` and the special `0x0` case.
+
+- `references/startup-mechanisms.md` — Deep dive on all five Windows startup mechanisms: registry Run keys, services, scheduled tasks, startup folders, group policy. Load when doing a full startup audit, hunting vendor-installed auto-launch hooks across multiple mechanisms, or implementing the StartupApproved disable trick. Includes vendor-pattern checklists (Adobe, Docker, NVIDIA) and edge cases like WMI permanent event consumers and IFEO Debugger redirects.
+
+## Worked example
+
+A user reports "my PC takes minutes to boot and crashes sometimes." Workflow:
+
+```
+1. scripts/health-audit.ps1
+   → identifies failing drive (Disk N), counts pre-crash storage resets,
+     surfaces crash history with BugCheck codes, inventories startup load
+
+2. scripts/crash-triage.ps1
+   → most recent crash decoded; pre-crash timeline shows storahci 129
+     at T-2min → SMOKING GUNS: storage failure cascade
+
+3. scripts/safe-disable-startup.ps1 -List
+   → see current state of every Run-key entry across HKCU + HKLM (+ WOW64)
+
+4. scripts/safe-disable-startup.ps1 -Name 'Adobe Creative Cloud','Granola',...
+   → bulk disable via StartupApproved overlay (no admin needed)
+
+5. (admin) Set-Service AdobeARMservice -StartupType Manual; Stop-Service ...
+   → for the service-tier startup hooks the script doesn't touch
+
+6. Verdict to user:
+   - Disk N is dying — back up + replace (specific drive identified)
+   - N startup items disabled
+   - Crash risk eliminated by physically disconnecting failing drive
+
+7. Confirm by reboot — re-run health-audit, verify zero storahci resets
+```
+
+The data was always there in the System log — this skill just asks for it correctly.
