@@ -81,6 +81,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\_lib\common.ps1"
+. (Join-Path $PSScriptRoot '..\..\_lib\term.ps1')
+Initialize-Term
 
 # Preflight
 $robo = Get-Command robocopy.exe -ErrorAction SilentlyContinue
@@ -102,13 +104,11 @@ try {
 
 $destDriveLetter = $Destination.Substring(0, 1).ToUpper()
 $destDrive = Get-PSDrive -PSProvider FileSystem -Name $destDriveLetter -ErrorAction SilentlyContinue
-if ($destDrive) {
-    $destFreeGB = [math]::Round($destDrive.Free / 1GB, 1)
-    Write-Log -Level INFO -Message "Source data: $srcUsedGB GB  |  Destination free: $destFreeGB GB"
-    if ($srcUsedGB -gt 0 -and $destFreeGB -lt $srcUsedGB) {
-        Write-Log -Level FAIL -Message "Destination has $destFreeGB GB free; source is $srcUsedGB GB. Insufficient space."
-        exit $script:EXIT_VALIDATION
-    }
+$destFreeGB = if ($destDrive) { [math]::Round($destDrive.Free / 1GB, 1) } else { -1 }
+
+if ($srcUsedGB -gt 0 -and $destFreeGB -gt 0 -and $destFreeGB -lt $srcUsedGB) {
+    Write-Log -Level FAIL -Message "Destination has $destFreeGB GB free; source is $srcUsedGB GB. Insufficient space."
+    exit $script:EXIT_VALIDATION
 }
 
 # Timestamps and log paths
@@ -139,15 +139,32 @@ if ($DryRun) {
     Write-Log -Level INFO -Message "DRY-RUN — robocopy /L will enumerate without copying"
 }
 
-Write-Log -Level INFO -Message "Logs:  $cloneLog"
-Write-Log -Level INFO -Message "Robocopy: robocopy $($roboArgs -join ' ')"
+# ─── Preflight panel ─────────────────────────────────────────────────────────
+$mode = if ($DryRun) { 'dry-run' } elseif ($NoMirror) { 'copy' } else { 'mirror' }
+Write-TermLine (New-TermPanelOpen -Brand 'windows-ops' -Name 'windows-ops' -Subtitle 'recover-clone' -Indicator $mode)
+Write-TermLine (New-TermPanelVert)
+$srcDisplay = if ($srcUsedGB -gt 0) { "$srcUsedGB GB" } else { 'size unknown' }
+$dstDisplay = if ($destFreeGB -gt 0) { "$destFreeGB GB free" } else { 'free space unknown' }
+Write-TermLine (New-TermSummary -Text "$Source → $Destination · $srcDisplay · destination has $dstDisplay")
+Write-TermLine (New-TermPanelVert)
+
+Write-TermLine (New-TermSection -State 'INFO' -Label 'robocopy invocation' -Count -1)
+Write-TermLine (New-TermLeaf -Name 'retries per file' -Meta "$MaxRetries (0 = recommended for failing drives)")
+Write-TermLine (New-TermLeaf -Name 'mirror mode' -Meta $(if ($NoMirror) { '/E (subtree, no delete)' } else { '/MIR' }))
+Write-TermLine (New-TermLeaf -Name 'threads' -Meta '/MT:8')
+Write-TermLine (New-TermLeaf -Name 'log' -Meta $cloneLog -IsLast)
+if ($DryRun) {
+    Write-TermLine (New-TermAlert -Severity warning -Text 'DRY-RUN — robocopy /L enumerates without copying')
+}
+Write-TermLine (New-TermPanelVert)
+Write-TermLine (New-TermPanelClose -Hotkeys (New-TermHotkey -Key '?' -Verb 'help') -Healths (New-TermHealth -State 'pending' -Text 'starting'))
 
 if (-not $PSCmdlet.ShouldProcess("$Source -> $Destination", "robocopy clone")) {
     Write-Log -Level INFO -Message "WhatIf: would run but skipped due to -WhatIf"
     exit $script:EXIT_OK
 }
 
-# Run robocopy
+# ─── Run robocopy (its own native output goes to its TEE'd console + log) ───
 $start = Get-Date
 & robocopy.exe @roboArgs
 $roboExit = $LASTEXITCODE
@@ -162,25 +179,54 @@ $end = Get-Date
 # 16     — fatal error
 # Combinations possible (bitmask). >=8 means errors.
 $elapsed = [math]::Round(($end - $start).TotalMinutes, 1)
-Write-Log -Level INFO -Message "Elapsed: $elapsed min  |  Robocopy exit: $roboExit"
 
 # Extract failed files from log
+$failedCount = 0
 if (Test-Path $cloneLog) {
     $failedFiles = Select-String -Path $cloneLog -Pattern 'ERROR \d+ \(0x[0-9A-Fa-f]+\)' -ErrorAction SilentlyContinue
     if ($failedFiles) {
         $failedFiles | ForEach-Object { $_.Line } | Set-Content -Path $failedLog
-        Write-Log -Level WARN -Message "$($failedFiles.Count) file(s) failed to copy — see: $failedLog"
+        $failedCount = $failedFiles.Count
     }
 }
 
-# Map robocopy exit to ATP semantics
-if ($roboExit -ge 16) {
-    Write-Log -Level FAIL -Message "Fatal robocopy error — review $cloneLog"
-    exit $script:EXIT_ERROR
-} elseif ($roboExit -ge 8) {
-    Write-Log -Level WARN -Message "Some files could not be copied (drive-failure or permission). Clone is partial."
-    exit 1   # partial success per ATP
-} else {
-    Write-Log -Level PASS -Message "Clone complete. Robocopy code $roboExit (no errors)."
-    exit $script:EXIT_OK
+# Determine verdict
+$verdictState = if ($roboExit -ge 16) { 'FAILING' }
+                elseif ($roboExit -ge 8) { 'WARN' }
+                else { 'PASS' }
+$verdictText = switch ($verdictState) {
+    'FAILING' { 'fatal robocopy error' }
+    'WARN'    { 'partial clone — some files unreadable' }
+    'PASS'    { 'clone complete' }
 }
+
+# ─── Results panel ───────────────────────────────────────────────────────────
+Write-TermLine ''
+Write-TermLine (New-TermPanelOpen -Brand 'windows-ops' -Name 'windows-ops' -Subtitle 'recover-clone · results' -Indicator "${elapsed} min")
+Write-TermLine (New-TermPanelVert)
+Write-TermLine (New-TermSummary -Text "$verdictText · robocopy exit $roboExit")
+Write-TermLine (New-TermPanelVert)
+
+Write-TermLine (New-TermSection -State $verdictState -Label $verdictState.ToLower() -Count -1)
+Write-TermLine (New-TermLeaf -Name 'elapsed' -Meta "$elapsed minutes")
+Write-TermLine (New-TermLeaf -Name 'failed reads' -Meta "$failedCount files")
+Write-TermLine (New-TermLeaf -Name 'clone log' -Meta $cloneLog)
+if ($failedCount -gt 0) {
+    Write-TermLine (New-TermLeaf -Name 'failed list' -Meta $failedLog -IsLast)
+    Write-TermLine (New-TermAlert -Severity warning -Text "$failedCount file(s) unreadable from source — review $failedLog and consider ddrescue for bit-level recovery")
+} else {
+    Write-TermLine (New-TermLeaf -Name 'failures' -Meta 'none' -IsLast)
+}
+Write-TermLine (New-TermPanelVert)
+
+$footerHealth = switch ($verdictState) {
+    'FAILING' { New-TermHealth -State 'critical' -Text 'fatal' }
+    'WARN'    { New-TermHealth -State 'warning' -Text "$failedCount lost" }
+    'PASS'    { New-TermHealth -State 'healthy' -Text 'complete' }
+}
+Write-TermLine (New-TermPanelClose -Hotkeys (New-TermHotkey -Key '?' -Verb 'help') -Healths $footerHealth)
+
+# Map robocopy exit to ATP semantics
+if ($roboExit -ge 16) { exit $script:EXIT_ERROR }
+elseif ($roboExit -ge 8) { exit 1 }
+else { exit $script:EXIT_OK }
