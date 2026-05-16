@@ -173,6 +173,7 @@ expected_scripts=(
     health-audit.sh panic-triage.sh startup-audit.sh safe-disable-startup.sh
     disk-health.sh drive-dependencies.sh boot-perf.sh recover-clone.sh
     tcc-audit.sh wake-reasons.sh spotlight-status.sh storage-pressure.sh
+    kext-audit.sh firewall-audit.sh network-locations.sh
 )
 for s in "${expected_scripts[@]}"; do
     assert "script exists: $s" test -f "$root/scripts/$s"
@@ -186,7 +187,7 @@ echo "--- All 7 reference docs present ---"
 expected_refs=(
     storage-events.md recovery-patterns.md tcc-mechanics.md
     launchd-deep-dive.md panic-codes.md startup-mechanisms.md
-    remote-diagnostics.md
+    remote-diagnostics.md apple-silicon-specifics.md
 )
 for r in "${expected_refs[@]}"; do
     assert "reference exists: $r" test -f "$root/references/$r"

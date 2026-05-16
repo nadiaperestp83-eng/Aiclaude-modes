@@ -242,11 +242,30 @@ emit_summary
 
 if [[ "$JSON_MODE" -eq 0 ]] && [[ -n "$FIRST_FAIL" ]]; then
     case "$FIRST_FAIL" in
-        *"PANIC"*)     echo "  Next: scripts/panic-triage.sh  # decode the most recent panic" ;;
-        *"STORAGE"*)   echo "  Next: scripts/disk-health.sh -v /  # drill into rung 2" ;;
-        *"STARTUP"*)   echo "  Next: scripts/startup-audit.sh  # inventory and cull bloat" ;;
-        *"TCC"*)       echo "  Next: scripts/tcc-audit.sh  # see which app/service is denied" ;;
-        *"WAKE"*)      echo "  Next: scripts/wake-reasons.sh  # break down wake causes" ;;
-        *) echo "  Next: re-run with --verbose, then check references/" ;;
+        *"PANIC"*|*"panic"*)
+            echo "  Next: scripts/panic-triage.sh  # decode the most recent panic + pre-panic timeline" ;;
+        *"STORAGE"*|*"IO errors"*|*"APFS"*)
+            echo "  Next: scripts/disk-health.sh -v /  # APFS + IO errors + snapshot bloat" ;;
+        *"snapshot"*|*"Free space"*|*"Local Time Machine"*)
+            echo "  Next: scripts/storage-pressure.sh  # explain disk pressure / snapshot bloat" ;;
+        *"STARTUP"*|*"LaunchAgent"*|*"LaunchDaemon"*|*"Login Items"*)
+            echo "  Next: scripts/startup-audit.sh  # full inventory; safe-disable-startup.sh to cull" ;;
+        *"TCC"*|*"denial"*)
+            echo "  Next: scripts/tcc-audit.sh --denied  # see which app/service is being denied" ;;
+        *"Wake"*|*"WAKE"*)
+            echo "  Next: scripts/wake-reasons.sh --since 7d  # classify wakes by cause" ;;
+        *"Thermal"*|*"Battery"*|*"shutdown"*)
+            echo "  Next: open System Settings → Battery → Options; check pmset -g custom" ;;
+        *"helper tool"*)
+            echo "  Next: ls /Library/PrivilegedHelperTools/  # remove orphans manually with sudo rm" ;;
+        *)
+            echo "  Next: re-run with --verbose, then check references/" ;;
     esac
+fi
+
+# Friendly status if nothing failed
+if [[ "$JSON_MODE" -eq 0 ]] && [[ -z "$FIRST_FAIL" ]] && [[ "$WARN_COUNT" -eq 0 ]]; then
+    echo "  ✓ System looks clean across all 8 rungs."
+elif [[ "$JSON_MODE" -eq 0 ]] && [[ -z "$FIRST_FAIL" ]] && [[ "$WARN_COUNT" -gt 0 ]]; then
+    echo "  ✓ No FAILs. $WARN_COUNT WARN entries above worth scanning."
 fi

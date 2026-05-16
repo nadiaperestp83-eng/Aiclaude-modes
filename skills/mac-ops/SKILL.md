@@ -83,6 +83,9 @@ Produces a verdict block: hardware events, storage health per volume, recent pan
 | Mac waking at night | `scripts/wake-reasons.sh` — pmset log breakdown by reason class |
 | Spotlight broken / mds CPU spike | `scripts/spotlight-status.sh` — index state per volume, common fixes |
 | Storage "full" but disk usage doesn't add up | `scripts/storage-pressure.sh` — APFS snapshots, local Time Machine, purgeable bytes |
+| Kernel panic blames a kext / loaded kext audit | `scripts/kext-audit.sh` — third-party kexts + system extensions + SIP/security policy state |
+| Firewall behavior / VPN tunnel inventory | `scripts/firewall-audit.sh` — ALF + pf + Network Extension content filters + utun inventory |
+| Network preferences across location profiles | `scripts/network-locations.sh` — DNS / proxy / search domains per location, service order |
 
 ### 3. Apply the minimum reversible fix
 
