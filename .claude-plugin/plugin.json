@@ -1,7 +1,7 @@
 {
   "name": "claude-mods",
-  "version": "2.6.0",
-  "description": "Custom commands, skills, and agents for Claude Code - session continuity, 23 expert agents, 76 skills, 2 commands, 6 rules, 4 hooks, 13 output styles, modern CLI tools",
+  "version": "2.7.0",
+  "description": "Custom commands, skills, and agents for Claude Code - session continuity, 23 expert agents, 78 skills, 2 commands, 6 rules, 4 hooks, 13 output styles, modern CLI tools",
   "author": "0xDarkMatter",
   "repository": "https://github.com/0xDarkMatter/claude-mods",
   "license": "MIT",
@@ -79,6 +79,7 @@
       "skills/markitdown",
       "skills/mcp-ops",
       "skills/migrate-ops",
+      "skills/mac-ops",
       "skills/monitoring-ops",
       "skills/net-ops",
       "skills/nginx-ops",

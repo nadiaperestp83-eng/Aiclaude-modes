@@ -5,7 +5,7 @@
 This is **claude-mods** - a collection of custom extensions for Claude Code:
 - **23 expert agents** for specialized domains (React, Python, Go, Rust, AWS, git, etc.)
 - **2 commands** for session management (/sync, /save)
-- **76 skills** for CLI tools, patterns, workflows, and development tasks (incl. `net-ops` for network troubleshooting and `windows-ops` for Windows workstation diagnostics)
+- **78 skills** for CLI tools, patterns, workflows, and development tasks (incl. `net-ops` for network troubleshooting, `windows-ops` for Windows workstation diagnostics, `mac-ops` for macOS workstation diagnostics)
 - **13 output styles** for response personality (Vesper, Spartan, Mentor, Executive, Pair, Atlas, Coach, Harbour, Meridian, Noir, Roast, Sage, Scout)
 - **4 hooks** for pre-commit linting, post-edit formatting, dangerous command warnings, and pmail notifications
 - **Pigeon** inter-session messaging (`pigeon send/read/reply`) - SQLite-backed pmail at `~/.claude/pmail.db`
