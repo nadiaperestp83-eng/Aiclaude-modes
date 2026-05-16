@@ -22,6 +22,9 @@ From Python async patterns to Rust ownership models, from AWS Fargate deployment
 
 ## Recent Updates
 
+**v2.7.2** (May 2026)
+- 🩺 **`mac-ops` final polish** - Added `sysdiagnose-helper.sh` — wraps Apple's `sysdiagnose` tool with privacy-aware bundle inspection (`--list`, `--inspect`, plain run). Bundles can be 1-2GB and contain hostnames/usernames/IPs; helper surfaces what's inside before sharing. New `mac-vs-windows-ops.md` cross-reference doc — side-by-side diagnostic ladders, script equivalents, "when to use which" decision table, command-translation cheat sheet for support workflows that span both OSes. Total: 16 scripts, 10 reference docs, 5,411 lines, 81-test self-suite.
+
 **v2.7.1** (May 2026)
 - 🩺 **`mac-ops` expansion** - Three additional diagnostic scripts: `kext-audit.sh` (loaded kexts + system extensions + SIP/security policy state + Apple Silicon `bputil` boot policy), `firewall-audit.sh` (ALF + pf + Network Extension content filters + utun tunnel inventory), `network-locations.sh` (Network Location profiles + per-service DNS/proxy/search-domain + service order). New `apple-silicon-specifics.md` reference catalogs the M1+ vs Intel differences (boot recovery UX, security policy tiers, kexts vs system extensions, panic format, SMC absorption into the SoC). Health-audit's verdict block now has cross-script wayfinding — when a panic / storage / TCC / wake / startup issue is detected, the "Next:" line points at the right drilldown script directly.
 
