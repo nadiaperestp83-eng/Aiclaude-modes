@@ -174,7 +174,7 @@ expected_scripts=(
     disk-health.sh drive-dependencies.sh boot-perf.sh recover-clone.sh
     tcc-audit.sh wake-reasons.sh spotlight-status.sh storage-pressure.sh
     kext-audit.sh firewall-audit.sh network-locations.sh
-    sysdiagnose-helper.sh
+    sysdiagnose-helper.sh brew-health.sh update-state.sh media-libraries.sh
 )
 for s in "${expected_scripts[@]}"; do
     assert "script exists: $s" test -f "$root/scripts/$s"

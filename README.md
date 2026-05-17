@@ -22,6 +22,9 @@ From Python async patterns to Rust ownership models, from AWS Fargate deployment
 
 ## Recent Updates
 
+**v2.7.3** (May 2026)
+- 🩺 **`mac-ops` dev tooling + update state** - Three more scripts focused on the developer-side and Mac-keeping-itself-current dimensions: `brew-health.sh` (Homebrew doctor + outdated formulae/casks + cleanup opportunities + Apple Silicon vs Intel architecture sanity + pinned formulae + brew services + tap inventory), `update-state.sh` (macOS auto-update policy + pending updates from softwareupdate + Mac App Store auto-update settings + mas CLI integration), `media-libraries.sh` (Photos/Music/TV/Final Cut/Logic/iMovie library sizes, iCloud Drive cache, photolibraryd/cloudphotod sync daemon CPU snapshot, recent sync errors). Total: 19 scripts, 10 reference docs, 5,918 lines.
+
 **v2.7.2** (May 2026)
 - 🩺 **`mac-ops` final polish** - Added `sysdiagnose-helper.sh` — wraps Apple's `sysdiagnose` tool with privacy-aware bundle inspection (`--list`, `--inspect`, plain run). Bundles can be 1-2GB and contain hostnames/usernames/IPs; helper surfaces what's inside before sharing. New `mac-vs-windows-ops.md` cross-reference doc — side-by-side diagnostic ladders, script equivalents, "when to use which" decision table, command-translation cheat sheet for support workflows that span both OSes. Total: 16 scripts, 10 reference docs, 5,411 lines, 81-test self-suite.
 
