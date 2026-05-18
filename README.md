@@ -22,6 +22,9 @@ From Python async patterns to Rust ownership models, from AWS Fargate deployment
 
 ## Recent Updates
 
+**v2.7.6** (May 2026)
+- 🩺 **`mac-ops` worked examples** - Added `worked-examples.md` reference with three end-to-end diagnostic walkthroughs: "Mac is slow and hot" (Spotlight reindex + Power Nap wake pattern), "Can't share screen on Zoom" (TCC denial after macOS update — the canonical case for `tccutil reset ScreenCapture`), and "Disk full but I deleted everything" (APFS local snapshots + cache directories). Each walkthrough shows the symptom, the script sequence, the actual signal in output, and the fix command. Useful as recognition patterns for the most common modern Mac complaints. Total: 22 scripts, 11 reference docs, 6,564 lines.
+
 **v2.7.5** (May 2026)
 - 🩺 **`mac-ops` bluetooth + fonts** - Added `bluetooth-audit.sh` (paired devices, connection state, recent connect/disconnect events, BT-driven wake settings — useful for "AirPods keep dropping" and "Magic Mouse cursor stutter" diagnoses) and `font-audit.sh` (font directory inventory across system/user/Adobe locations, fontd CPU + recent errors, duplicate font filename detection — font conflicts crash Office and Adobe apps). Total: 22 scripts, 10 reference docs, 6,355 lines.
 

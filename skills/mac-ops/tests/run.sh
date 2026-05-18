@@ -190,7 +190,7 @@ expected_refs=(
     storage-events.md recovery-patterns.md tcc-mechanics.md
     launchd-deep-dive.md panic-codes.md startup-mechanisms.md
     remote-diagnostics.md apple-silicon-specifics.md
-    mac-vs-windows-ops.md
+    mac-vs-windows-ops.md worked-examples.md
 )
 for r in "${expected_refs[@]}"; do
     assert "reference exists: $r" test -f "$root/references/$r"
