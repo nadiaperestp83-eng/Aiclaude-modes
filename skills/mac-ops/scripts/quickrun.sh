@@ -40,6 +40,8 @@ done
 source "$(dirname "$0")/_lib/common.sh"
 parse_common_flags "$@"
 maybe_filter_self "$@"
+source "$(dirname "$0")/_lib/panel.sh"
+panel_init
 
 SCRIPTS_DIR="$(dirname "$0")"
 
@@ -60,9 +62,10 @@ run_subscript() {
     note "  $label"
     note "════════════════════════════════════════════════════════════════"
 
-    # Capture sub-script output (suppress its own SUMMARY since we'll do our own)
+    # Capture sub-script output (suppress its own SUMMARY since we'll do our own).
+    # Force NO_PANEL so children emit parseable plain text — we render our own panel.
     local out
-    out=$(bash "$SCRIPTS_DIR/$script" --quiet "$@" 2>&1 || true)
+    out=$(NO_PANEL=1 bash "$SCRIPTS_DIR/$script" --quiet "$@" 2>&1 || true)
 
     # Echo the sub-script's findings (everything before its SUMMARY)
     echo "$out" | sed -n '/^=== /,/^=== SUMMARY ===/p' | sed '/^=== SUMMARY ===/q' | sed '$d'
@@ -109,6 +112,67 @@ if [[ "$JSON_MODE" -eq 1 ]]; then
     printf '{"type":"quickrun_summary","pass":%d,"fail":%d,"warn":%d,"info":%d,"fail_count":%d,"warn_count":%d}\n' \
         "$TOTAL_PASS" "$TOTAL_FAIL" "$TOTAL_WARN" "$TOTAL_INFO" \
         "${#ALL_FAILS[@]}" "${#ALL_WARNS[@]}"
+elif panel_enabled; then
+    hostname_short=$(scutil --get LocalHostName 2>/dev/null | head -c 30 || hostname -s | head -c 30)
+    echo ""
+    term_panel_open mac-ops "mac-ops · quickrun" "$hostname_short"
+    term_panel_vert
+    term_summary_line "$((TOTAL_PASS+TOTAL_FAIL+TOTAL_WARN+TOTAL_INFO)) checks across 5 audits · $TOTAL_FAIL fail · $TOTAL_WARN warn"
+    term_panel_vert
+
+    if [[ "${#ALL_FAILS[@]}" -gt 0 ]]; then
+        term_section "FAILED" "failing" "${#ALL_FAILS[@]}"
+        n=${#ALL_FAILS[@]}
+        i=0
+        for f in "${ALL_FAILS[@]}"; do
+            i=$((i+1))
+            if [[ "$i" -eq "$n" ]]; then connector="$TERM_TREE_LAST"; else connector="$TERM_TREE_BRANCH"; fi
+            line="$f"
+            (( ${#line} > 100 )) && line="${line:0:97}..."
+            printf '%s   %s %s\n' \
+                "$(term_color dim "$TERM_TREE_VERT")" \
+                "$connector" \
+                "$line"
+            [[ "$i" -ge 10 ]] && { printf '%s   %s %s\n' "$(term_color dim "$TERM_TREE_VERT")" "$TERM_TREE_LAST" "$(term_color dim "... +$((n-10)) more")"; break; }
+        done
+        term_panel_vert
+    fi
+
+    if [[ "${#ALL_WARNS[@]}" -gt 0 ]]; then
+        term_section "WARN" "warning" "${#ALL_WARNS[@]}"
+        n=${#ALL_WARNS[@]}
+        i=0
+        for w in "${ALL_WARNS[@]}"; do
+            i=$((i+1))
+            if [[ "$i" -eq "$n" ]]; then connector="$TERM_TREE_LAST"; else connector="$TERM_TREE_BRANCH"; fi
+            line="$w"
+            (( ${#line} > 100 )) && line="${line:0:97}..."
+            printf '%s   %s %s\n' \
+                "$(term_color dim "$TERM_TREE_VERT")" \
+                "$connector" \
+                "$line"
+            [[ "$i" -ge 10 ]] && { printf '%s   %s %s\n' "$(term_color dim "$TERM_TREE_VERT")" "$TERM_TREE_LAST" "$(term_color dim "... +$((n-10)) more")"; break; }
+        done
+        term_panel_vert
+    fi
+
+    term_section "OK" "pass" "$TOTAL_PASS"
+    if [[ "$TOTAL_INFO" -gt 0 ]]; then
+        term_section "info" "info" "$TOTAL_INFO"
+    fi
+    term_panel_vert
+
+    health_state="healthy"
+    [[ "$TOTAL_WARN" -gt 0 ]] && health_state="warning"
+    [[ "$TOTAL_FAIL" -gt 0 ]] && health_state="critical"
+    right_health="$(term_health "$health_state" "$TOTAL_FAIL fail · $TOTAL_WARN warn")"
+    term_panel_close "" "$right_health"
+    echo ""
+
+    if [[ "${#ALL_FAILS[@]}" -eq 0 ]] && [[ "${#ALL_WARNS[@]}" -eq 0 ]]; then
+        echo "  ✓ System looks clean. No FAILs or WARNs across 5 audits."
+    fi
+    echo "  Next: drill any FAIL into its source script (--verbose for detail)"
 else
     echo
     echo "  Aggregate: PASS $TOTAL_PASS    FAIL $TOTAL_FAIL    WARN $TOTAL_WARN    INFO $TOTAL_INFO"

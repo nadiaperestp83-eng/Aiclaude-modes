@@ -49,42 +49,8 @@ TERM_ICON_WARN=""
 TERM_ICON_HINT=""
 
 # ─── Registries (Unicode|ASCII) ───────────────────────────────────────────
-declare -A TERM_BRAND=(
-  [fleet]="⚡|[F]"
-  [forge]="🔨|[B]"
-  [psql]="🐘|[P]"
-  [watch]="📡|[M]"
-  [deploy]="🚀|[D]"
-  [git]="🌿|[G]"
-  [windows-ops]="🩺|[H]"
-)
-
-declare -A TERM_HEALTH_GLYPH=(
-  [healthy]="•|(+)"
-  [pending]="•|(.)"
-  [warning]="•|(!)"
-  [critical]="•|(!!)"
-  [busted]="⬤|(X)"
-  [unknown]="•|(?)"
-)
-
-declare -A TERM_DIAGRAM_ICON=(
-  [user]="👤|(U)"
-  [web]="🌐|(W)"
-  [mobile]="📱|(M)"
-  [auth]="🔐|(A)"
-  [database]="🗄|(D)"
-  [cache]="⚡|(C)"
-  [queue]="📨|(Q)"
-  [storage]="📦|(P)"
-  [service]="⚙|*"
-  [api]="🔌|(I)"
-  [search]="🔍|(S)"
-  [timer]="⏱|(T)"
-  [build]="🔨|(B)"
-  [hook]="🪝|(H)"
-  [log]="📄|(F)"
-)
+# Implemented as case statements in __term_lookup below (bash 3.2 compatible —
+# stock macOS bash lacks associative arrays).
 
 # Header indicator glyph (branch/⎇)
 TERM_GLYPH_BRANCH=""
@@ -205,12 +171,38 @@ term_color() {
 # term_emoji <registry_name> <key>  — returns Unicode glyph or ASCII fallback.
 # Internal helper; pass "BRAND", "HEALTH_GLYPH", "DIAGRAM_ICON".
 __term_lookup() {
-  local map=$1 key=$2 entry uni ascii
-  case "$map" in
-    BRAND)         entry="${TERM_BRAND[$key]:-}" ;;
-    HEALTH_GLYPH)  entry="${TERM_HEALTH_GLYPH[$key]:-}" ;;
-    DIAGRAM_ICON)  entry="${TERM_DIAGRAM_ICON[$key]:-}" ;;
-    *)             entry="" ;;
+  local map=$1 key=$2 entry="" uni ascii
+  case "${map}::${key}" in
+    BRAND::fleet)               entry="⚡|[F]" ;;
+    BRAND::forge)               entry="🔨|[B]" ;;
+    BRAND::psql)                entry="🐘|[P]" ;;
+    BRAND::watch)               entry="📡|[M]" ;;
+    BRAND::deploy)              entry="🚀|[D]" ;;
+    BRAND::git)                 entry="🌿|[G]" ;;
+    BRAND::windows-ops)         entry="🩺|[H]" ;;
+    BRAND::mac-ops)             entry="🩺|[M]" ;;
+    HEALTH_GLYPH::healthy)      entry="•|(+)" ;;
+    HEALTH_GLYPH::pending)      entry="•|(.)" ;;
+    HEALTH_GLYPH::warning)      entry="•|(!)" ;;
+    HEALTH_GLYPH::critical)     entry="•|(!!)" ;;
+    HEALTH_GLYPH::alarm)        entry="•|(!!)" ;;
+    HEALTH_GLYPH::busted)       entry="⬤|(X)" ;;
+    HEALTH_GLYPH::unknown)      entry="•|(?)" ;;
+    DIAGRAM_ICON::user)         entry="👤|(U)" ;;
+    DIAGRAM_ICON::web)          entry="🌐|(W)" ;;
+    DIAGRAM_ICON::mobile)       entry="📱|(M)" ;;
+    DIAGRAM_ICON::auth)         entry="🔐|(A)" ;;
+    DIAGRAM_ICON::database)     entry="🗄|(D)" ;;
+    DIAGRAM_ICON::cache)        entry="⚡|(C)" ;;
+    DIAGRAM_ICON::queue)        entry="📨|(Q)" ;;
+    DIAGRAM_ICON::storage)      entry="📦|(P)" ;;
+    DIAGRAM_ICON::service)      entry="⚙|*" ;;
+    DIAGRAM_ICON::api)          entry="🔌|(I)" ;;
+    DIAGRAM_ICON::search)       entry="🔍|(S)" ;;
+    DIAGRAM_ICON::timer)        entry="⏱|(T)" ;;
+    DIAGRAM_ICON::build)        entry="🔨|(B)" ;;
+    DIAGRAM_ICON::hook)         entry="🪝|(H)" ;;
+    DIAGRAM_ICON::log)          entry="📄|(F)" ;;
   esac
   [[ -z "$entry" ]] && { printf '%s' "?"; return; }
   uni="${entry%|*}"

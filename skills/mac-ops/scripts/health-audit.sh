@@ -45,6 +45,8 @@ set -- ${SAVED_ARGS[@]+"${SAVED_ARGS[@]}"}
 source "$(dirname "$0")/_lib/common.sh"
 parse_common_flags "$@"
 maybe_filter_self "$@"
+source "$(dirname "$0")/_lib/panel.sh"
+panel_init
 
 # ----------------------------------------------------------------------------
 section "1. HARDWARE HEALTH"
@@ -243,9 +245,10 @@ note "  Uptime:     $(uptime | awk -F'up ' '{split($2,a,","); print a[1]}')"
 note "  Hostname:   $(scutil --get LocalHostName 2>/dev/null || hostname)"
 
 # ----------------------------------------------------------------------------
-emit_summary
+hostname_short=$(scutil --get LocalHostName 2>/dev/null | head -c 30 || hostname -s | head -c 30)
+panel_render "health-audit" "$hostname_short"
 
-if [[ "$JSON_MODE" -eq 0 ]] && [[ -n "$FIRST_FAIL" ]]; then
+if [[ "$JSON_MODE" -eq 0 ]] && [[ "$MAC_PANEL_ENABLED" -eq 0 ]] && [[ -n "$FIRST_FAIL" ]]; then
     case "$FIRST_FAIL" in
         *"PANIC"*|*"panic"*)
             echo "  Next: scripts/panic-triage.sh  # decode the most recent panic + pre-panic timeline" ;;

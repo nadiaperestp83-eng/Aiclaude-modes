@@ -22,6 +22,9 @@ From Python async patterns to Rust ownership models, from AWS Fargate deployment
 
 ## Recent Updates
 
+**v2.8.0** (May 2026)
+- 🎨 **`mac-ops` panel UI** - Adopted the TERMINAL-DESIGN panel system (same visual language as `windows-ops`). `health-audit.sh` and `quickrun.sh` now render a state-grouped tree panel with rounded corners, brand glyph (🩺 / `[M]`), 21-checks summary line, failing/warning/pass/info sections, and a footer health indicator that maps WARN→warning (orange) and FAIL→critical (red). New `skills/mac-ops/scripts/_lib/panel.sh` wraps `skills/_lib/term.sh` and transparently collects findings via `log_pass/fail/warn/info` overrides — sub-scripts emit a plain summary, orchestrators emit the panel. Also refactored `term.sh` to drop bash 4-only associative arrays (`declare -A`) in favour of a flat case lookup, so the panel system now works on stock macOS bash 3.2 without requiring `brew install bash`. ASCII fallback when not a UTF locale; honors `NO_PANEL=1`, `FORCE_PANEL=1`, `JSON_MODE=1` (JSON output never renders a panel — the NDJSON contract is sacred). 115 mac-ops tests still pass.
+
 **v2.7.8** (May 2026)
 - 🩺 **`mac-ops` --days parse fix** - Dogfooded `quickrun.sh` end-to-end and caught a real bug: health-audit's `--days N` parser used `for arg in "$@"` with `shift`, which doesn't update the loop variable, so `DAYS` ended up containing the literal string `--days` instead of the numeric value. Section labels then printed `IO errors via log (--days days)` instead of `(1 days)`. Refactored to a `while [[ $# -gt 0 ]]` loop that correctly handles the two-token form. The two-pass approach (parse-then-restore-via `set --`) keeps downstream `parse_common_flags` working unchanged.
 
