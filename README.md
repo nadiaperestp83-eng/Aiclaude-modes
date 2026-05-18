@@ -22,6 +22,9 @@ From Python async patterns to Rust ownership models, from AWS Fargate deployment
 
 ## Recent Updates
 
+**v2.7.7** (May 2026)
+- 🩺 **`mac-ops` quickrun consolidator** - Added `quickrun.sh` — one-shot "what's wrong with my Mac?" runner that sequences the 5 highest-yield audits (health-audit + startup-audit + storage-pressure + wake-reasons + tcc-audit --denied) and emits a single CONSOLIDATED VERDICT with aggregate PASS/FAIL/WARN counts plus the top failures and warnings as bulleted findings. Designed for the "60 seconds, what's broken?" workflow vs running 22 individual scripts. Total: 23 scripts, 11 reference docs, 6,780+ lines.
+
 **v2.7.6** (May 2026)
 - 🩺 **`mac-ops` worked examples** - Added `worked-examples.md` reference with three end-to-end diagnostic walkthroughs: "Mac is slow and hot" (Spotlight reindex + Power Nap wake pattern), "Can't share screen on Zoom" (TCC denial after macOS update — the canonical case for `tccutil reset ScreenCapture`), and "Disk full but I deleted everything" (APFS local snapshots + cache directories). Each walkthrough shows the symptom, the script sequence, the actual signal in output, and the fix command. Useful as recognition patterns for the most common modern Mac complaints. Total: 22 scripts, 11 reference docs, 6,564 lines.
 
