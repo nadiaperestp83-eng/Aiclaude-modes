@@ -13,10 +13,12 @@ set -u
 
 DAYS=30
 
-for arg in "$@"; do
-    case "$arg" in
-        --days) shift; DAYS="${1:-30}" ;;
-        --days=*) DAYS="${arg#--days=}" ;;
+# Use a while loop instead of for-arg-in to correctly handle --days N (two tokens)
+SAVED_ARGS=("$@")
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --days) DAYS="${2:-30}"; shift 2 ;;
+        --days=*) DAYS="${1#--days=}"; shift ;;
         --help|-h)
             cat <<EOF
 Usage: $0 [options]
@@ -34,8 +36,11 @@ Exit codes (reflect whether the audit RAN, not what it found):
   5  precondition missing
 EOF
             exit 0 ;;
+        *) shift ;;
     esac
 done
+# Restore $@ for downstream parse_common_flags / maybe_filter_self
+set -- ${SAVED_ARGS[@]+"${SAVED_ARGS[@]}"}
 
 source "$(dirname "$0")/_lib/common.sh"
 parse_common_flags "$@"

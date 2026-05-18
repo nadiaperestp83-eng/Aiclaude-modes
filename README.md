@@ -22,6 +22,9 @@ From Python async patterns to Rust ownership models, from AWS Fargate deployment
 
 ## Recent Updates
 
+**v2.7.8** (May 2026)
+- 🩺 **`mac-ops` --days parse fix** - Dogfooded `quickrun.sh` end-to-end and caught a real bug: health-audit's `--days N` parser used `for arg in "$@"` with `shift`, which doesn't update the loop variable, so `DAYS` ended up containing the literal string `--days` instead of the numeric value. Section labels then printed `IO errors via log (--days days)` instead of `(1 days)`. Refactored to a `while [[ $# -gt 0 ]]` loop that correctly handles the two-token form. The two-pass approach (parse-then-restore-via `set --`) keeps downstream `parse_common_flags` working unchanged.
+
 **v2.7.7** (May 2026)
 - 🩺 **`mac-ops` quickrun consolidator** - Added `quickrun.sh` — one-shot "what's wrong with my Mac?" runner that sequences the 5 highest-yield audits (health-audit + startup-audit + storage-pressure + wake-reasons + tcc-audit --denied) and emits a single CONSOLIDATED VERDICT with aggregate PASS/FAIL/WARN counts plus the top failures and warnings as bulleted findings. Designed for the "60 seconds, what's broken?" workflow vs running 22 individual scripts. Total: 23 scripts, 11 reference docs, 6,780+ lines.
 
