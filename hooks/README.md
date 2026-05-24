@@ -9,6 +9,8 @@ Claude Code hooks allow you to run custom scripts at key workflow points.
 | `pre-commit-lint.sh` | PreToolUse | Auto-lint staged files before commit (JS/TS, Python, Go, Rust, PHP) |
 | `post-edit-format.sh` | PostToolUse | Auto-format files after Write/Edit (Prettier, Ruff, gofmt, rustfmt) |
 | `dangerous-cmd-warn.sh` | PreToolUse | Block destructive commands (force push, rm -rf, DROP TABLE, etc.) |
+| `enforce-uv.sh` | PreToolUse | Enforce uv over pip/bare tools in uv-managed projects (`pip install` → `uv add`, bare `pytest`/`ruff`/`mypy` → `uv run`) |
+| `check-mail.sh` | PreToolUse | Check for unread pigeon pmail via signal file (zero-cost when empty) |
 
 ## Configuration
 
@@ -22,6 +24,7 @@ Add hooks to `.claude/settings.json` or `.claude/settings.local.json`:
         "matcher": "Bash",
         "hooks": [
           "bash hooks/dangerous-cmd-warn.sh $TOOL_INPUT",
+          "bash hooks/enforce-uv.sh $TOOL_INPUT",
           "bash hooks/pre-commit-lint.sh $TOOL_INPUT"
         ]
       }
