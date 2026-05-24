@@ -49,14 +49,19 @@ dependencies = [
     "rich>=13.0",
 ]
 
-[project.optional-dependencies]
+# Dev tooling → dependency-groups (PEP 735). `uv add --dev <pkg>` writes here;
+# `uv sync` installs it by default. Not shipped with the published package.
+[dependency-groups]
 dev = [
-    "pytest>=7.0",
-    "pytest-asyncio>=0.21",
-    "pytest-cov>=4.0",
-    "ruff>=0.1",
-    "mypy>=1.0",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=5.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
 ]
+
+# Opt-in extras users install explicitly: `uv add "my-package[docs]"`
+[project.optional-dependencies]
 docs = [
     "mkdocs>=1.5",
     "mkdocs-material>=9.0",
@@ -91,7 +96,7 @@ dependencies = [
 [project.scripts]
 mycli = "my_cli.main:app"
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = ["pytest", "ruff"]
 ```
 
@@ -115,13 +120,13 @@ dependencies = [
     "python-dotenv>=1.0",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
-    "pytest>=7.0",
-    "pytest-asyncio>=0.21",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
     "httpx>=0.25",  # for testing
-    "ruff>=0.1",
-    "mypy>=1.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
 ]
 ```
 
