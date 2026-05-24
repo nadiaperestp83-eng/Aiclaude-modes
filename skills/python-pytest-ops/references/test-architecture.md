@@ -324,7 +324,7 @@ def order(user):
 ## Performance Testing
 
 ```python
-# pip install pytest-benchmark
+# uv add --dev pytest-benchmark
 
 def test_sort_performance(benchmark):
     """Benchmark sorting algorithm."""
@@ -333,14 +333,14 @@ def test_sort_performance(benchmark):
     assert result == sorted(data)
 
 
-# pip install pytest-timeout
+# uv add --dev pytest-timeout
 @pytest.mark.timeout(5)  # Fail if takes >5 seconds
 def test_with_timeout():
     slow_operation()
 
 
 # Track memory
-# pip install pytest-memray
+# uv add --dev pytest-memray
 @pytest.mark.limit_memory("100 MB")
 def test_memory_usage():
     large_operation()

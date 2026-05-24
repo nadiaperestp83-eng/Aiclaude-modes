@@ -190,17 +190,22 @@ API_VERSION: Final[str] = "v2"
 ## Type Checker Commands
 
 ```bash
-# mypy
-mypy src/ --strict
+# mypy (run inside the project env)
+uv run mypy src/ --strict
 
 # pyright
-pyright src/
+uv run pyright src/
 
 # In pyproject.toml
 [tool.mypy]
 strict = true
 python_version = "3.11"
 ```
+
+**Emerging: `ty`** — Astral's Rust-based type checker (same toolchain as uv +
+ruff), dramatically faster than mypy. Still in preview (pre-1.0), so mypy or
+pyright remain the production default — but worth watching, and easy to try:
+`uvx ty check`. Adopt for new projects once it stabilizes.
 
 ## Additional Resources
 

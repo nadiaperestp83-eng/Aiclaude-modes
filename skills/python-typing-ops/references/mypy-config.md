@@ -211,28 +211,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
-        run: |
-          pip install mypy
-          pip install -e .[dev]
+        run: uv sync
 
       - name: Run mypy
-        run: mypy src/
+        run: uv run mypy src/
 
   pyright:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
-        run: pip install -e .[dev]
+        run: uv sync
 
       - name: Run pyright
         uses: jakebailey/pyright-action@v2
@@ -254,14 +250,11 @@ repos:
 ## Common Type Stubs
 
 ```bash
-# Install type stubs
-pip install types-requests
-pip install types-redis
-pip install types-PyYAML
-pip install boto3-stubs[essential]
+# Install type stubs (dev-only)
+uv add --dev types-requests types-redis types-PyYAML "boto3-stubs[essential]"
 
 # Or use mypy to find missing stubs
-mypy --install-types src/
+uv run mypy --install-types src/
 ```
 
 ## Gradual Typing Strategy

@@ -98,6 +98,9 @@ uv python list              # show available + installed
 uv init --python 3.12 app   # pin a project to a version
 ```
 
+3.13 is the current stable release (free-threading and JIT, both opt-in); 3.11+
+is a sensible floor for new projects (TaskGroup, `Self`, faster interpreter).
+
 ## Minimal pyproject.toml
 
 ```toml

@@ -5,7 +5,7 @@ Performance patterns for high-throughput async applications.
 ## uvloop - Drop-in Event Loop Replacement
 
 ```python
-# Install: pip install uvloop
+# Install: uv add uvloop
 
 # Option 1: Install as default (before any asyncio calls)
 import uvloop
@@ -358,7 +358,7 @@ class AsyncProfiler:
 
 
 # Use yappi for comprehensive profiling
-# pip install yappi
+# uv add --dev yappi
 import yappi
 
 yappi.set_clock_type("wall")  # For async code

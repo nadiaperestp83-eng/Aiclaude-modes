@@ -54,15 +54,15 @@ done
 
 # Check if pytest is installed
 if ! command -v pytest &> /dev/null; then
-    echo -e "${RED}pytest not found. Install with: pip install pytest${NC}"
+    echo -e "${RED}pytest not found. Install with: uv add --dev pytest${NC}"
     exit 1
 fi
 
 # Watch mode
 if [[ -n "$WATCH" ]]; then
     if ! command -v ptw &> /dev/null; then
-        echo -e "${YELLOW}pytest-watch not found. Installing...${NC}"
-        pip install pytest-watch
+        echo -e "${YELLOW}pytest-watch not found. Install with: uv add --dev pytest-watch${NC}"
+        exit 1
     fi
     echo -e "${GREEN}Starting watch mode...${NC}"
     ptw -- $PYTEST_ARGS $COVERAGE

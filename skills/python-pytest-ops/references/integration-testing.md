@@ -84,7 +84,7 @@ async def test_async_query(async_session):
 ## TestContainers
 
 ```python
-# pip install testcontainers
+# uv add --dev testcontainers
 
 import pytest
 from testcontainers.postgres import PostgresContainer
@@ -233,7 +233,7 @@ def test_user_creation_flow(client):
 ## Snapshot Testing
 
 ```python
-# pip install syrupy
+# uv add --dev syrupy
 
 import pytest
 from syrupy.assertion import SnapshotAssertion

@@ -5,11 +5,11 @@ Schema migration patterns for SQLAlchemy projects.
 ## Setup
 
 ```bash
-# Install
-pip install alembic
+# Install (project dependency)
+uv add alembic
 
 # Initialize in project root
-alembic init alembic
+uv run alembic init alembic
 
 # For async projects
 alembic init -t async alembic

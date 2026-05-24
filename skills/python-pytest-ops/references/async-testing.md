@@ -5,7 +5,7 @@ Testing asyncio code with pytest-asyncio.
 ## Setup
 
 ```bash
-pip install pytest-asyncio
+uv add --dev pytest-asyncio
 ```
 
 ```ini

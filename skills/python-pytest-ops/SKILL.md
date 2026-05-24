@@ -159,6 +159,9 @@ def client(app):
 
 ## Quick Reference
 
+Run these inside the project env — prefix with `uv run` (e.g. `uv run pytest -v`).
+Bare `pytest` is shown below for brevity.
+
 | Command | Description |
 |---------|-------------|
 | `pytest` | Run all tests |

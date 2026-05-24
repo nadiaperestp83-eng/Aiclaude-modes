@@ -52,7 +52,7 @@ run_mypy() {
     echo -e "${BLUE}=== Running mypy ===${NC}"
 
     if ! command -v mypy &> /dev/null; then
-        echo -e "${YELLOW}mypy not found. Install with: pip install mypy${NC}"
+        echo -e "${YELLOW}mypy not found. Install with: uv add --dev mypy${NC}"
         return 1
     fi
 
@@ -77,7 +77,7 @@ run_pyright() {
     echo -e "${BLUE}=== Running pyright ===${NC}"
 
     if ! command -v pyright &> /dev/null; then
-        echo -e "${YELLOW}pyright not found. Install with: pip install pyright${NC}"
+        echo -e "${YELLOW}pyright not found. Install with: uv add --dev pyright${NC}"
         return 1
     fi
 

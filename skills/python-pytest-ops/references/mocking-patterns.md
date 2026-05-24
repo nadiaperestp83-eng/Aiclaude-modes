@@ -176,7 +176,7 @@ def test_with_autospec():
 ## pytest-mock Plugin
 
 ```python
-# pip install pytest-mock
+# uv add --dev pytest-mock
 
 def test_with_mocker(mocker):
     # mocker is a fixture that wraps unittest.mock

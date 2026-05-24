@@ -8,7 +8,7 @@ Comprehensive patterns for Python project configuration.
 [project]
 name = "my-project"
 version = "0.1.0"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "httpx>=0.25",
     "pydantic>=2.0",
@@ -28,7 +28,7 @@ version = "0.1.0"
 description = "A short description of the project"
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [
     { name = "Your Name", email = "you@example.com" }
 ]
@@ -87,7 +87,7 @@ build-backend = "hatchling.build"
 [project]
 name = "my-cli"
 version = "0.1.0"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "typer>=0.9",
     "rich>=13.0",
@@ -110,7 +110,7 @@ build-backend = "hatchling.build"
 [project]
 name = "my-api"
 version = "0.1.0"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.100",
     "uvicorn[standard]>=0.23",
@@ -137,7 +137,7 @@ dev = [
 ```toml
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py311"
 exclude = [
     ".git",
     ".venv",
@@ -211,7 +211,7 @@ filterwarnings = [
 
 ```toml
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 strict = true
 warn_return_any = true
 warn_unused_ignores = true

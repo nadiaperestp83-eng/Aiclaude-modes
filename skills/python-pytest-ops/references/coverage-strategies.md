@@ -5,7 +5,7 @@ Comprehensive code coverage with pytest-cov.
 ## Setup
 
 ```bash
-pip install pytest-cov
+uv add --dev pytest-cov
 ```
 
 ## Basic Usage
@@ -121,15 +121,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
-        run: pip install -e .[test]
+        run: uv sync
 
       - name: Run tests with coverage
-        run: pytest --cov=src --cov-report=xml
+        run: uv run pytest --cov=src --cov-report=xml
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -173,24 +172,24 @@ coverage report
 
 ```bash
 # Show coverage for changed lines only (with diff-cover)
-pip install diff-cover
+uv add --dev diff-cover
 
-pytest --cov=src --cov-report=xml
-diff-cover coverage.xml --compare-branch=origin/main
+uv run pytest --cov=src --cov-report=xml
+uv run diff-cover coverage.xml --compare-branch=origin/main
 ```
 
 ## Mutation Testing
 
 ```bash
 # Beyond coverage: test quality with mutmut
-pip install mutmut
+uv add --dev mutmut
 
 # Run mutation testing
-mutmut run --paths-to-mutate=src/
+uv run mutmut run --paths-to-mutate=src/
 
 # View results
-mutmut results
-mutmut html
+uv run mutmut results
+uv run mutmut html
 ```
 
 ## Coverage Reports
