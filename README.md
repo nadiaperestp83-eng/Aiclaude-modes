@@ -22,6 +22,9 @@ From Python async patterns to Rust ownership models, from AWS Fargate deployment
 
 ## Recent Updates
 
+**v2.10.0** (May 2026)
+- 🕵️ **`prompt-injection-defense` skill** - Instruction-integrity sibling to `supply-chain-defense`: defends the agent's context surface against adversarial content where what a reviewer sees differs from what the model reads. `scan-hidden-unicode.py` detects bidi/Trojan-Source reordering, `U+E0000` tag-block ASCII smuggling, zero-width text, and (`--strict`) homoglyphs — emoji-whitelisted so it doesn't false-positive on every README; `sanitize-content.py` strips them from untrusted content before ingest (byte-faithful, idempotent). Deployed as silent guardians at the trust boundaries: a SessionStart hook scans project instruction files at boot, a git pre-commit gate blocks `critical` hidden Unicode from entering the repo, and `rules/prompt-injection.md` drives scan-on-entry / sanitize-on-ingest. Codepoint catalog + 2 references + 18-assertion offline suite.
+
 **v2.9.0** (May 2026)
 - 🛡️ **`supply-chain-defense` skill** - Behavioural-first defense against the 2026 npm/PyPI/Composer worm campaign (Shai-Hulud) that `npm audit` misses in the publish-to-advisory window — the proactive sibling to `security-ops`. Free-first Socket.dev integration (open-source CLI, zero-auth `depscore` MCP) plus advisory hooks on both install commands and manifest edits. `exposure-check.py` matches installed lockfiles (npm/pnpm/yarn/bun, PyPI, Composer, Cargo, Go, RubyGems + editor extensions) against a cited-IOC catalog; `integrity-audit.sh` hunts worm persistence in configs, shell rc, and `.npmrc`; `preinstall-check.sh` enforces a 7-day release-age cooldown. A global `rules/supply-chain.md` carries the doctrine everywhere; 42-assertion offline test suite, IOC format from Perplexity's [Bumblebee](https://github.com/perplexityai/bumblebee).
 
