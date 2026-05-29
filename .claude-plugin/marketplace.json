@@ -1,0 +1,15 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "claude-mods",
+  "description": "Custom commands, skills, agents, and rules for Claude Code",
+  "owner": {
+    "name": "0xDarkMatter"
+  },
+  "plugins": [
+    {
+      "name": "claude-mods",
+      "description": "Expert agents, skills, commands, rules, hooks, and output styles for Claude Code - session continuity and modern CLI tooling",
+      "source": "./"
+    }
+  ]
+}

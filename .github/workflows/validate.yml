@@ -1,0 +1,30 @@
+name: Validate extensions
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Install Claude Code (for authoritative plugin validation)
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Validate plugin + marketplace manifests
+        run: |
+          claude plugin validate .
+          tmp="$(mktemp -d)"
+          mkdir -p "$tmp/.claude-plugin"
+          cp .claude-plugin/plugin.json "$tmp/.claude-plugin/plugin.json"
+          claude plugin validate "$tmp"
+
+      - name: Validate extensions (frontmatter, naming, structure)
+        run: bash tests/validate.sh

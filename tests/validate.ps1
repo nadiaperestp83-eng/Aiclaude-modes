@@ -236,6 +236,9 @@ function Test-Skills {
 
     $subdirs = Get-ChildItem -Path $skillsDir -Directory
     foreach ($subdir in $subdirs) {
+        # Skip shared helper dirs (e.g. _lib) - not skills, no SKILL.md expected.
+        if ($subdir.Name -like "_*") { continue }
+
         $skillFile = Join-Path $subdir.FullName "SKILL.md"
 
         if (-not (Test-Path $skillFile)) {
@@ -369,6 +372,82 @@ function Test-Settings {
     }
 }
 
+function Test-Plugin {
+    Write-Host ""
+    Write-Host "=== Validating Plugin Manifests ===" -ForegroundColor Cyan
+
+    # The authoritative validator is `claude plugin validate` (it tracks the
+    # live schema - it caught a bad plugin `source` shape and an `author` type
+    # error that a hand-rolled check sailed past). Prefer it when present; fall
+    # back to lightweight structural checks otherwise. The stray-root-file guard
+    # runs regardless - the official tool can't see a misplaced copy.
+    $pluginDir = Join-Path $ProjectDir ".claude-plugin"
+    $pluginFile = Join-Path $pluginDir "plugin.json"
+    $mktFile = Join-Path $pluginDir "marketplace.json"
+
+    # --- location guard ---
+    if (Test-Path (Join-Path $ProjectDir "marketplace.json")) {
+        Write-Fail "marketplace.json found at repo root - must live at .claude-plugin/marketplace.json"
+    }
+    if (-not (Test-Path $pluginFile)) { Write-Fail ".claude-plugin/plugin.json - Missing" }
+    if (-not (Test-Path $mktFile)) { Write-Fail ".claude-plugin/marketplace.json - Missing (required for /plugin marketplace add)" }
+
+    $claude = Get-Command claude -ErrorAction SilentlyContinue
+
+    # --- authoritative path ---
+    if ($claude) {
+        & claude plugin validate $ProjectDir 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Pass "marketplace.json - claude plugin validate passed"
+        } else {
+            Write-Fail "marketplace.json - claude plugin validate failed (run: claude plugin validate .)"
+        }
+
+        if (Test-Path $pluginFile) {
+            $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
+            New-Item -ItemType Directory -Path (Join-Path $tmp ".claude-plugin") -Force | Out-Null
+            Copy-Item $pluginFile (Join-Path $tmp ".claude-plugin\plugin.json")
+            & claude plugin validate $tmp 2>&1 | Out-Null
+            if ($LASTEXITCODE -eq 0) {
+                Write-Pass "plugin.json - claude plugin validate passed"
+            } else {
+                Write-Fail "plugin.json - claude plugin validate failed (unrecognized keys or wrong field types)"
+            }
+            Remove-Item -Recurse -Force $tmp
+        }
+        return
+    }
+
+    # --- fallback path: lightweight structural checks ---
+    Write-Warn "claude CLI not found - using lightweight manifest checks only (install Claude Code for authoritative validation)"
+
+    if (Test-Path $pluginFile) {
+        try {
+            $plugin = Get-Content -Path $pluginFile -Raw | ConvertFrom-Json
+            if ($plugin.name -is [string] -and $plugin.name) {
+                Write-Pass "$pluginFile - structurally OK (name present)"
+            } else {
+                Write-Fail "$pluginFile - Missing required field: name"
+            }
+        } catch {
+            Write-Fail "$pluginFile - Invalid JSON"
+        }
+    }
+
+    if (Test-Path $mktFile) {
+        try {
+            $mkt = Get-Content -Path $mktFile -Raw | ConvertFrom-Json
+            $ok = $true
+            if (-not ($mkt.name -is [string] -and $mkt.name)) { Write-Fail "$mktFile - Missing required field: name (string)"; $ok = $false }
+            if ($null -eq $mkt.owner -or -not ($mkt.owner.name -is [string] -and $mkt.owner.name)) { Write-Fail "$mktFile - owner.name missing (owner must be an object with a name)"; $ok = $false }
+            if ($mkt.plugins -isnot [array]) { Write-Fail "$mktFile - Missing required field: plugins (array)"; $ok = $false }
+            if ($ok) { Write-Pass "$mktFile - structurally OK (run claude plugin validate for full schema)" }
+        } catch {
+            Write-Fail "$mktFile - Invalid JSON"
+        }
+    }
+}
+
 # Main
 Write-Host "claude-mods Validation"
 Write-Host "======================"
@@ -379,6 +458,7 @@ Test-Commands
 Test-Skills
 Test-Rules
 Test-Settings
+Test-Plugin
 
 Write-Host ""
 Write-Host "======================"
