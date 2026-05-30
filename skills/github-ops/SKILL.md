@@ -1,6 +1,6 @@
 ---
 name: github-ops
-description: "GitHub remote operations — repo creation, metadata (description/homepage/topics), releases, README 'Recent Updates' enforcement. Companion to git-ops (local) and push-gate (pre-push safety). Three modes: new (first publish), update (subsequent release), audit (read-only checklist). Triggers on: push to github, publish repo, ship release, cut release, gh release, set topics, repo description, github metadata, recent updates section, audit github repo, repo visibility, make repo public, gh repo create."
+description: "GitHub remote operations — repo creation, metadata (description/homepage/topics), releases, README 'Recent Updates' enforcement, and issue / PR management with preview-before-send discipline. Companion to git-ops (local) and push-gate (pre-push safety). Three modes: new (first publish), update (subsequent release), audit (read-only checklist), plus atomic operations for issues and PRs. Triggers on: push to github, publish repo, ship release, cut release, gh release, set topics, repo description, github metadata, recent updates section, audit github repo, repo visibility, make repo public, gh repo create, gh issue, gh pr, create issue, comment on issue, close issue, triage issue, create PR, review PR, merge PR, pre-merge check, pr checks."
 license: MIT
 allowed-tools: "Read Write Edit Bash Glob Grep"
 metadata:
@@ -29,7 +29,9 @@ git-ops                        push-gate           github-ops  (this skill)
 | `gh release create` + release notes | **`github-ops`** |
 | README "Recent Updates" section maintenance | **`github-ops`** |
 | Package metadata audit (pyproject/package.json ↔ GH topics ↔ tag ↔ version) | **`github-ops`** |
-| Issues / PRs / Actions / secrets | **`github-ops`** (future) |
+| `gh issue` operations (view/list/create/comment/edit/triage/close) | **`github-ops`** |
+| `gh pr` operations (view/list/diff/checks/create/comment/review/edit/merge/close) | **`github-ops`** |
+| Actions / secrets / branch protection / social preview | **`github-ops`** (future) |
 
 ## Hard rules
 
@@ -40,6 +42,7 @@ git-ops                        push-gate           github-ops  (this skill)
 5. **README "Recent Updates" updates on every release.** This is the one README touch that always happens, regardless of how minor the release. See `references/readme-recent-updates.md` for the canonical claude-mods style.
 6. **Never push without confirming visibility decision.** When creating a new repo, surface visibility as a flippable line in the plan ("creating as **private** — say 'public' to flip"), not buried in flag soup.
 7. **No local-machine paths in committed content.** Never bake `C:\Users\<name>\…`, `/home/<name>/…`, `/Users/<name>/…`, `/tmp/<one-off-test-dir>`, or any other machine-specific path into README entries, Recent Updates bullets, CHANGELOG entries, release notes, tag annotations, or commit messages. Public release artefacts have to read the same on someone else's machine. Use generic placeholders (`~/Temp/`, `<temp-dir>`, "a temp directory") or describe the file's purpose abstractly instead. If a path genuinely is part of the project's public API (install location, config path), state it canonically (`$HOME/.claude/skills/...`), not as a literal absolute that includes a user name.
+8. **Preview every public post before sending.** Anything with author voice that lands on a third-party surface — `gh issue create/comment/edit --body`, `gh pr create/comment/review/edit --body`, `gh release create --notes`, merge commit `--subject`/`--body` — must be quoted verbatim in chat with the exact send command named, then await explicit approval before invoking. Mechanical actions with no body (label, assign, milestone, mark-ready, close-without-message) skip preview. See `~/.claude/rules/public-posts.md` for the full rule.
 
 ## Three modes
 
@@ -188,6 +191,56 @@ GITHUB STATE CHECKS (skip if no remote)
 
 Output: per-row pass/fail/warn, then a summary score and list of fixes. Fixes are suggested but not applied — the user decides whether to run mode `new` or mode `update` to act on them.
 
+## Operations
+
+Atomic GH-side actions that don't fit the three multi-step modes. Each operation that writes author voice to a third-party surface (issue/PR body, comment, review body, release notes, merge commit subject/body) is governed by **hard rule 8** and [public-posts](~/.claude/rules/public-posts.md): quote the exact body in chat, name the send command, wait for explicit approval, then send. Mechanical actions (labels, assign, close-without-message, mark-ready) skip preview.
+
+### Issues
+
+Reads (no preview): `gh issue view <n>`, `gh issue view <n> --comments`, `gh issue list`, `gh api repos/<o>/<r>/issues/<n>` (for fields not in the default view).
+
+Writes:
+
+| Op | Command | Preview? |
+|---|---|---|
+| Create | `gh issue create --title --body` | **Yes** (title + body) |
+| Comment | `gh issue comment <n> --body` | **Yes** (body) |
+| Edit title/body | `gh issue edit <n> --title --body` | **Yes** |
+| Triage (label/assign/milestone) | `gh issue edit <n> --add-label … --assignee … --milestone …` | No (mechanical) |
+| Close / reopen | `gh issue close <n>` / `gh issue reopen <n>` | No, **unless** closing with a comment — preview the comment |
+| Transfer | `gh issue transfer <n> <target-repo>` | No (mechanical), but confirm target with user |
+
+See `references/issue-ops.md` for full playbooks, triage flow, and closing-comment templates.
+
+### Pull Requests
+
+Reads (no preview): `gh pr view <n>`, `gh pr view <n> --comments`, `gh pr list`, `gh pr diff <n>`, `gh pr checks <n>`, `gh pr checks <n> --watch`, `gh api repos/<o>/<r>/pulls/<n>/comments` (inline review comments).
+
+Writes:
+
+| Op | Command | Preview? |
+|---|---|---|
+| Create | `gh pr create --title --body` | **Yes** (title + body) |
+| Comment | `gh pr comment <n> --body` | **Yes** |
+| Review (approve / request changes / comment) | `gh pr review <n> --approve --body …` | **Yes** (body, if any) |
+| Edit title/body | `gh pr edit <n> --title --body` | **Yes** |
+| Edit labels / reviewers | `gh pr edit <n> --add-label … --add-reviewer …` | No (mechanical) |
+| Mark ready (un-draft) | `gh pr ready <n>` | No (mechanical) |
+| Merge | `gh pr merge <n> --squash` (or `--merge` / `--rebase`) | No body to preview by default, but **explicit user approval required** + run pre-merge gate first. If passing `--subject` / `--body`, preview those (they become the commit message on `main`) |
+| Close | `gh pr close <n>` | No, **unless** closing with a comment — preview the comment |
+
+**PR creation lives here, not in git-ops.** git-ops handles local commits/branches/push; the `gh pr create` call itself talks to `api.github.com` and belongs in this skill. (Existing git-ops T2 PR-create still works; new flows should route through github-ops.)
+
+**Pre-merge gate** — never invoke `gh pr merge` without first confirming:
+
+1. `gh pr view <n> --json mergeable,mergeStateStatus` → `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`
+2. `gh pr checks <n>` → every check passed (or explicitly ignored with user approval)
+3. `gh pr diff <n>` reviewed — confirm no surprise scope, no committed secrets/local paths, no stale PR-body claims
+4. Merge strategy picked — **default squash** for fix/feature branches with multiple WIP commits; `--merge` only when individual commits matter; `--rebase` for linear-history repos. Ask if uncertain.
+5. Branch deletion is a **separate explicit step**, not bundled. Default to keeping the branch; delete remote + local after merge only on explicit user OK (it's destructive enough to warrant its own confirmation, and a checked-out branch can't be deleted).
+
+See `references/pr-ops.md` for full playbooks, review-flow templates, and the merge-strategy decision tree.
+
 ## Conventions enforced (load reference files for detail)
 
 | Convention | File | Default |
@@ -197,6 +250,8 @@ Output: per-row pass/fail/warn, then a summary score and list of fixes. Fixes ar
 | README Recent Updates style | `references/readme-recent-updates.md` | claude-mods per-version blocks (alternate: flarecrawl table) |
 | Repo visibility default | `references/repo-visibility.md` | `--private` unless user says "public" |
 | Metadata audit checklist | `references/metadata-checklist.md` | full source-of-truth for mode `audit` |
+| Issue operations | `references/issue-ops.md` | view → triage → comment (with preview) → close; closing comments preview-gated |
+| PR operations | `references/pr-ops.md` | create (preview body) → review → pre-merge gate → squash by default; branch deletion separate explicit step |
 
 ## Git authorship
 
@@ -254,8 +309,6 @@ When invoking git-ops T2 operations, dispatch to git-agent with a one-shot promp
 
 ## Future expansion (not yet implemented)
 
-- **Issues** — `gh issue create/list/comment/close` workflows
-- **PRs** — `gh pr` operations (note: git-ops T2 currently owns PR creation; could migrate or stay split — decide on first need)
 - **Actions** — workflow file scaffolding, `gh workflow` operations
 - **Secrets** — `gh secret set/list/delete` (with secure handling)
 - **Branch protection** — `gh api` calls for protection rules
@@ -274,6 +327,8 @@ When adding any of the above, keep the boundary discipline: anything talking to 
 | `references/readme-recent-updates.md` | "Recent Updates" section format + emoji vocabulary |
 | `references/repo-visibility.md` | Private-by-default policy |
 | `references/metadata-checklist.md` | Audit checklist source of truth |
+| `references/issue-ops.md` | Issue operation playbooks (view/triage/comment/create/close) + preview templates |
+| `references/pr-ops.md` | PR operation playbooks (create/review/merge) + pre-merge gate + merge-strategy decision tree |
 | `scripts/` | (empty; reserved — extract patterns into scripts when they repeat across uses) |
 | `assets/` | (empty; reserved for README templates / snippets) |
 
