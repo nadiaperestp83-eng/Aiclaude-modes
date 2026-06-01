@@ -17,7 +17,7 @@ persistence hooks into **Claude Code and VS Code settings** specifically.
 
 ## Helps with
 
-**Every dependency install or version bump is a use case here — not just suspected attacks.** Run the behavioural scan on the way in, before the install, every time.
+Every install or version bump is a use case for this skill, not just suspected attacks — the routine cooldown gate + behavioural score is the whole point.
 
 Deciding whether a dependency you're about to add is safe — getting a behavioural
 verdict on an npm or PyPI package *before* `npm install` / `pip install`, not days
