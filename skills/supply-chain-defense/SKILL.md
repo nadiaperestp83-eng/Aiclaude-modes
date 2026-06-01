@@ -1,6 +1,6 @@
 ---
 name: supply-chain-defense
-description: "Behavioural-first software supply chain defense - catches poisoned npm/PyPI packages in the publish-to-advisory window that CVE tools miss. Socket.dev integration (free CLI + GitHub app + depscore MCP for Claude Code), stale-OIDC audit, dependency cooldown policy, publish-token rotation, VS Code extension audit, and a self-integrity scan that detects worm persistence hooks injected into Claude Code / VS Code settings. Triggers on: supply chain, supply chain attack, malicious package, poisoned dependency, npm worm, Shai-Hulud, behavioural scanning, Socket.dev, socket scan, dependency security, postinstall malware, OIDC token theft, compromised maintainer, typosquat, dependency confusion, package provenance, SLSA, persistence hook, malicious VS Code extension."
+description: "Behavioural-first software supply chain defense - catches poisoned npm/PyPI packages in the publish-to-advisory window that CVE tools miss. Use BEFORE every install or version bump (not only when an attack is suspected) - the 7-day cooldown gate + behavioural score catches freshly-published malware that CVE tools won't see for days. Socket.dev integration (free CLI + GitHub app + depscore MCP for Claude Code), stale-OIDC audit, dependency cooldown policy, publish-token rotation, VS Code extension audit, and a self-integrity scan that detects worm persistence hooks injected into Claude Code / VS Code settings. Triggers on: pip install, uv add, uv tool install, npm install, pnpm add, yarn add, cargo add, go get, composer require, gem install, upgrade dependency, dependency upgrade, version bump, bump version, bump package, adding dependency, new dependency, vetting a dependency, vet package, is this package safe, safe to install, should I install, before installing, pre-install check, preinstall scan, preinstall-check, PyPI cooldown, npm cooldown, release cooldown, minimumReleaseAge, score a package, package score, depscore, socket score, supply chain, supply chain attack, malicious package, poisoned dependency, npm worm, Shai-Hulud, behavioural scanning, Socket.dev, socket scan, dependency security, postinstall malware, OIDC token theft, compromised maintainer, typosquat, dependency confusion, package provenance, SLSA, persistence hook, malicious VS Code extension."
 license: MIT
 allowed-tools: "Read Edit Write Bash Glob Grep Agent WebFetch"
 metadata:
@@ -16,6 +16,8 @@ PyPI packages, steal credentials, republish from stolen tokens, and inject
 persistence hooks into **Claude Code and VS Code settings** specifically.
 
 ## Helps with
+
+**Every dependency install or version bump is a use case here — not just suspected attacks.** Run the behavioural scan on the way in, before the install, every time.
 
 Deciding whether a dependency you're about to add is safe — getting a behavioural
 verdict on an npm or PyPI package *before* `npm install` / `pip install`, not days
