@@ -23,13 +23,13 @@ From Python async patterns to Rust ownership models, from AWS Fargate deployment
 ## Recent Updates
 
 **v3.0.0** (June 2026)
-- 🏗️ **Skills-first restructure** - 11 language/framework expert agents (python, typescript, javascript, go, rust, react, vue, astro, laravel, sql, postgres) deprecated in favour of their `-ops` skill twins; unique agent content folded into the skills first (5 of 11 had none). Dispatching skills (review, testgen, explain, perf-ops, security-ops) now route `general-purpose` agents that preload the relevant skill references. 23 → 12 agents. *Breaking:* Task-tool dispatch to the removed subagent types no longer resolves.
-- 📚 **`claude-code-ops` skill** - claude-code-debug/-headless/-hooks merged into one skill rebuilt from current official docs: the full 30-event hook catalog with per-event JSON contracts and all five hook types, the current SKILL.md frontmatter spec (`when_to_use`, `context: fork`, skill-scoped hooks), headless/CLI reference, and extension-debugging decision trees. The stale `$TOOL_INPUT`-era guidance is gone.
-- 🆕 **Three comprehensive new skills**, all verified against live docs: `claude-api-ops` (building ON Claude - Messages API, tool use, prompt caching, structured outputs via `output_config.format`, batches, Agent SDK), `playwright-ops` (selector hierarchy, fixtures/POM, network mocking, CI sharding, flake hunting), `terraform-ops` (state management, module patterns, OIDC plan/apply workflow, write-only secrets).
-- 🛡️ **Live security guards + zero hand-wiring** - new `config-change-guard.sh` scans Claude settings files for worm-persistence IOCs the moment they're edited (ConfigChange hook); `worktree-guard.sh` mechanically enforces the worktree-boundaries rule. A plugin-level `hooks/hooks.json` auto-wires the whole security-advisory set on plugin install - no more manual settings.json surgery.
-- 🚢 **fleet-ops v2** - repositioned as the landing-discipline layer (sequential queue, test-gated merge, pre-land scrub, one-shot revert, new `fleet track`) on top of native agent teams / background agents, which now own session spawning.
-- 📑 **Docs you can trust, enforced** - new `CHANGELOG.md`; CI doc-drift gate fails the build when README/AGENTS/PLAN counts diverge from disk or a doc links a ghost path; CI now runs every skill's behavioural test suite; /save + /sync honestly repositioned vs native auto-memory (their value: portable, git-trackable, team-shareable state).
-- 🧰 **Skill Resource Protocol** - [`docs/SKILL-RESOURCE-PROTOCOL.md`](docs/SKILL-RESOURCE-PROTOCOL.md) sets one build standard for everything a skill ships beyond its prose (stream separation, semantic exit codes, `--help`+EXAMPLES, `--json` envelopes, agent safety). Its headline is the **staleness-verifier pattern**: a skill encoding fast-moving facts ships an `--offline` structural check (gates PR CI) plus a `--live` drift check (scheduled `freshness.yml`, never blocks a PR on a network blip). Four verifiers built to it — model-table drift, GitHub Action `uses:` resolution (the exact bug class that slipped into v3.0), hooks.json linting against the 30-event catalog, and Playwright flake-ranking.
+- 🔄 **Skills-first restructure** - *Breaking:* 11 language/framework expert agents retired in favour of their `-ops` skill twins, unique agent content folded into the skills first (5 of 11 had none). Dispatching skills now route `general-purpose` agents that preload skill references. 23 → 12 agents.
+- 📚 **`claude-code-ops` skill** - claude-code-debug/-headless/-hooks merged and rebuilt from current official docs: the 30-event hook catalog with per-event JSON contracts, today's SKILL.md frontmatter spec, headless/CLI reference, and extension-debugging decision trees.
+- 🆕 **Three new skills, doc-verified** - `claude-api-ops` (Messages API, tool use, prompt caching, structured outputs, Agent SDK), `playwright-ops` (selector hierarchy, fixtures, CI sharding, flake hunting), `terraform-ops` (state, modules, OIDC plan/apply, secrets).
+- 🛡️ **Live security guards, zero hand-wiring** - `config-change-guard.sh` scans Claude settings files for worm-persistence IOCs the moment they're edited; `worktree-guard.sh` mechanically enforces worktree boundaries. Plugin-level `hooks/hooks.json` auto-wires the security set on install.
+- 📐 **Skill Resource Protocol** - one build standard for skill scripts and assets ([docs/SKILL-RESOURCE-PROTOCOL.md](docs/SKILL-RESOURCE-PROTOCOL.md)), headlined by the staleness-verifier pattern: offline checks gate PR CI, live drift checks run weekly without ever blocking a PR. Four verifiers ship with it.
+- 🚢 **fleet-ops v2** - repositioned as landing discipline (sequential queue, test-gated merge, pre-land scrub, one-shot revert, new `fleet track`) on top of native agent teams and background agents, which now own session spawning.
+- 🧪 **Docs that can't rot** - new `CHANGELOG.md`; a CI doc-drift gate fails the build when README counts diverge from disk or a link goes ghost; every skill's behavioural suite runs in CI; /save + /sync repositioned as portable, team-shareable state alongside native auto-memory.
 
 **v2.10.0** (May 2026)
 - 🕵️ **`prompt-injection-defense` skill** - Instruction-integrity sibling to `supply-chain-defense`: defends the agent's context surface against adversarial content where what a reviewer sees differs from what the model reads. `scan-hidden-unicode.py` detects bidi/Trojan-Source reordering, `U+E0000` tag-block ASCII smuggling, zero-width text, and (`--strict`) homoglyphs — emoji-whitelisted so it doesn't false-positive on every README; `sanitize-content.py` strips them from untrusted content before ingest (byte-faithful, idempotent). Deployed as silent guardians at the trust boundaries: a SessionStart hook scans project instruction files at boot, a git pre-commit gate blocks `critical` hidden Unicode from entering the repo, and `rules/prompt-injection.md` drives scan-on-entry / sanitize-on-ingest. Codepoint catalog + 2 references + 18-assertion offline suite.
@@ -52,90 +52,6 @@ From Python async patterns to Rust ownership models, from AWS Fargate deployment
 
 **v2.4.11** (May 2026)
 - ✨ **`summon` skill** - Push Claude Desktop Code-tab sessions across accounts so they appear in the next account you switch to. Best run *before* switching — while still on your current near-limit account, push mid-flight sessions to the destination, then Logout/Login as the natural switch. Default is copy (sessions visible from both accounts); `--move` for lean cleanup. Hierarchical Account → Project → Session picker with global numbering, `--peek <id>` for transcript preview, `--list-accounts` inventory, recency aliases (`--1d/--3d/--7d/--all`), 8-hint rotating tip system. Output follows `docs/TERMINAL-DESIGN.md` (Terminal Panel Design System).
-
-**v2.4.10** (April 2026)
-- 📌 **`github-ops` Recent Updates rule sharpened** - `references/readme-recent-updates.md` gains an explicit "Recent Updates is for *features*, not bugs" subsection with three inclusion criteria, four exclusion criteria, and a self-check ("are you writing this because *you* remembered the fix or because *the user* is waiting for it?"). Replaces a soft single-bullet rule that allowed pre-existing bug fixes to slip into feature-release entries silently.
-
-**v2.4.9** (April 2026)
-- 🔍 **`git-ops` hygiene checks** - `status.sh` now proactively flags bad git practices during every status read: main checkout sitting on a feature branch (feature work belongs in worktrees), and merged branches not yet deleted. `SKILL.md` documents all four anti-patterns (feature branch, stale merges, WIP commits, large uncommitted pile) with severity ratings and remediation steps.
-- 📖 **`docs/references/claude-desktop-internals.md`** - Comprehensive map of Claude Desktop's file system layout and session architecture, validated by live probing. Key findings: cross-account session transfer works by copying only the metadata JSON; sidebar population is filesystem-driven on login (not server cache); `react-query-cache-ls` probe confirmed 7/8 transferred sessions were absent from server data but appeared in sidebar.
-
-**v2.4.8** (April 2026)
-- 📝 **`github-ops` README intros** - Stopped shipping single-line taglines as "descriptions". Skill now drafts a proper 2–3 paragraph intro on first publish (what it is / why it exists / who it's for), reading package metadata, CHANGELOG, and the primary entry point before writing — and surfaces the draft for approval rather than committing one-shot. New `references/readme-description.md` codifies voice (developer-to-developer, concrete, occasional dry wit), structure, anti-patterns ("blazing fast", emoji walls, marketing fluff, "this project aims to..."), and ships a worked before/after example. Mode `update` proposes expansion only if intro is < 80 words or scope has drifted (no churning good prose); mode `audit` flags thin intros. The `gh repo create --description` one-liner now derives from the README intro draft rather than blindly copying `pyproject.toml.description`.
-
-**v2.4.7** (April 2026)
-- 🛡️ **`push-gate` first-push fix** - Detected on first publish to a new remote: gitleaks scan failed because `origin/main` doesn't exist yet. Now branches on remote-ref existence — full-branch scan when new, diff-range scan when incremental.
-
-**v2.4.6** (April 2026)
-- 🐙 **`github-ops` skill** - GitHub remote operations companion to `git-ops` (local) and `push-gate` (pre-push safety). Owns `gh repo create`, repo metadata (description / homepage / topics / visibility), `gh release create`, and the README "Recent Updates" section convention. Three modes: `new` (first publish — audit, scaffold Recent Updates, create private-by-default repo, push, set topics, cut release), `update` (subsequent release — bump version per strategy, update Recent Updates + CHANGELOG, tag, push, release), `audit` (read-only checklist scoring LICENSE / README / package metadata / GitHub state). Bundles four reference docs codifying release strategy (default minor, never auto-major), Recent Updates style (claude-mods per-version blocks vs flarecrawl table), private-by-default visibility, and the full audit checklist with topic-derivation rules. Trims `git-ops` Release Workflow to stop at the local tag; remote half delegates here.
-
-**v2.4.5** (April 2026)
-- 🗄️ **`leveldb-ops` skill** - Read and decode Chromium/Electron LevelDB stores (Local Storage, IndexedDB, Session Storage). Pure-Python via `ccl_chromium_reader` (GitHub-only, not on PyPI) — `plyvel` skipped because Windows wheels don't exist and MSVC compile fails. Ships three reusable scripts (`dump_localstorage.py`, `dump_indexeddb.py`, `extract_keys.py`) and two reference docs: `chromium-format.md` (on-disk layout, append-only semantics, locking quirks per OS) and `claude-desktop-state.md` (full state map for Claude Desktop v1.3109.0 — origin keys, account-binding distinctions, sidebar mutation recipes, MCP iframe partitioning). Codifies the safety pattern (copy-then-delete-LOCK) and the append-only gotcha (last-write-wins per `script_key`). Triggers on Electron app forensics, IndexedDB decoding, "where does the desktop app cache X" questions.
-
-**v2.4.4** (April 2026)
-- 🔁 **`/iterate` enhancements** - Configurable throughput vs. atomicity tradeoff. New `Batch: N` argument applies N independent changes per iteration; on regression the loop bisects (cherry-pick replay) to identify the culprit, keeping good commits and dropping bad ones — preserves the "git as memory" guarantee while lifting the throughput ceiling. New stop conditions: `Until: <value>` (target metric) and `Stagnation: N` (consecutive no-improvement cap), OR'd with existing `Iterations` cap. New `Branch: auto|<name>|current` for branch isolation — `auto` derives `iterate/<slug-from-goal>` from the Goal text. New `iterate/best` git tag floats forward to the highest-metric commit, surviving any later regression. Always-summarize-on-exit rule — overnight runs interrupted in the morning now produce a final block before yielding control. Skill grew 243 → 356 lines.
-
-**v2.4.3** (April 2026)
-- 🌳 **Worktree-aware `git-ops`** - T1 inline `scripts/status.sh` (rich repo overview) and `scripts/worktree-survey.sh` (per-worktree triage). New "Worktree Operations" tier mapping; survey-first discipline before any prune.
-- 🛡️ **`push-gate` skill** - Pre-push safety gate. Gitleaks + regex secret scan, forbidden-file check, divergence check, dirty-tree refusal, explicit confirm. Refuses on any hit — no bypass.
-- 📌 **`rules/worktree-boundaries.md`** - Never `rm -rf .claude/worktrees/`, never `git add -A` when worktree gitlinks are untracked, never decide another session's worktree is orphaned.
-- 📬 **`auto-skill` visibility fix** - Stop hook's `systemMessage` only reaches Claude — ~80 suggestions vanished silently in a week. Now also appended to `~/.claude/auto-skill/pending.log`, surfaced at next `/sync`.
-
-**v2.4.1** (April 2026)
-- 🎭 **13 output styles** - Added 8 daemon personalities from private-project: Atlas (strategic advisor), Coach (momentum builder), Harbour (calm stability), Meridian (chief of staff), Noir (hard-boiled detective), Roast (honest friend), Sage (measured precision), Scout (lateral thinker). Standardised all frontmatter to Title Case names and unquoted descriptions.
-
-**v2.4.0** (April 2026)
-- 🧠 **`auto-skill` skill** - Self-learning skill creation inspired by [Hermes Agent](https://github.com/nousresearch/hermes-agent) and private-project's auto-skill system. PostToolUse hook silently tracks tool calls; Stop hook evaluates session complexity via 5 gates (8+ mutating ops, 4+ distinct tool types, no existing skill loaded, per-session cooldown, toggle check). Suggests skill creation via `systemMessage` while context is fresh. Agent Skills spec compliant with quality gates and duplicate detection. Toggle with `/auto-skill on/off/status`.
-- 📬 **`pigeon` skill** (renamed from `agentmail`) - Inter-session pmail between Claude Code sessions across projects. SQLite-backed at `~/.claude/pmail.db` with git-rooted project identity (survives renames/moves/clones), threading, file attachments, broadcast, search, and signal-file-driven hook notifications. Integrated into `/sync` for session-start mail check. Per-project disable via `.claude/pigeon.disable`. Renamed to avoid collision with [AgentMail](https://www.agentmail.to) (YC S25, $6M seed).
-
-**v2.3.1** (April 2026)
-- 🎨 **`genart-ops` skill** - Comprehensive generative art skill (1,843 lines) covering three.js scene scaffolding, p5.js sketch structure, SVG generation, GLSL shaders (noise, SDF, ray marching, IQ palettes), procedural algorithms (flow fields, Poisson disk, L-systems, WFC, Voronoi), and OKLAB/OKLCH colour theory
-- 📐 **Agent Skills spec compliance** - All 67 skills migrated to the [Agent Skills specification](https://agentskills.io/specification). Non-standard frontmatter fields moved into `metadata:` block, `license: MIT` and `metadata.author: claude-mods` on every skill. Verified 67/67 pass.
-- 📚 **Docs updated** - `SKILL-SUBAGENT-REFERENCE.md` rewritten with spec as standard, `naming-conventions.md` updated with spec-compliant frontmatter examples, `AGENT-SKILLS-COMPLIANCE-BRIEF.md` added to docs/
-
-**v2.3.0** (March 2026)
-- 🎯 **Orchestrator-dispatch pattern** - Three skills upgraded from static reference dumps to active orchestrators that classify intent, dispatch to agents, and manage safety tiers:
-  - **`git-ops`** + **`git-agent`** - First skill+agent pair. Orchestrator routes T1 reads inline, dispatches T2 writes and T3 destructive ops to a dedicated Sonnet background agent with preflight confirmation. Replaces `git-workflow`.
-  - **`perf-ops`** - Routes profiling to language experts (python-expert for py-spy, go-expert for pprof, etc.). Parallel CPU+memory profiling, before/after benchmarking protocol.
-  - **`security-ops`** - 3 parallel audit agents (dependency scan, SAST patterns, auth/config review) consolidate into OWASP-mapped severity report. Modelled on techdebt's parallel scanner architecture.
-- 📚 **Skill preloading** - Dispatching skills now instruct agents to read relevant skill references before starting work. Review and testgen agents load security-ops + testing-ops context. Perf-ops agents load profiling references. Git-agent loads CI/CD context for releases.
-- 🔧 **`model: sonnet`** specified for all expert dispatch - Cheaper, faster analysis without sacrificing quality for read-only review, test generation, and profiling tasks.
-
-**v2.2.0** (March 2026)
-- 🔍 **`/introspect` enhanced** - Now generates Session Insights after every analysis: workflow improvements, skill suggestions, and ready-to-paste permission configs to reduce interruptions. Scales recommendations to session size.
-- 🔧 **`/setperms` expanded** - Default template now includes 74 tool permissions (was 51): docker, cargo, go, pytest, npx, pnpm, yarn, bun, make, archive tools, data utilities.
-- 🗑️ **`claude-code-templates` removed** - Redundant with Anthropic's first-party `skill-creator`. Install scripts auto-clean existing installs.
-
-**v2.1.0** (March 2026)
-- 🔁 **`/iterate` skill** - Autonomous improvement loop inspired by [Karpathy's autoresearch](https://github.com/karpathy/autoresearch). Define a goal, scope, and mechanical metric - the agent loops autonomously: modify, measure, keep or discard, repeat. Works for any domain (test coverage, bundle size, performance, ML training, code quality).
-
-**v2.0.0** (March 2026)
-- 🚀 **64 skills** - 22 new `-ops` skills covering React, Vue, JavaScript, Go, Rust, TypeScript, Docker, CI/CD, API design, PostgreSQL, Astro, Laravel, Nginx, Auth, Monitoring, Debug, MCP, Tailwind, Migrate, Refactor, Scaffold, Perf, Log analysis
-- 🔄 **Renamed `-patterns` to `-ops`** - All 14 pattern skills renamed to signal comprehensive operational expertise
-- 🛠️ **cc-session CLI** - Zero-dependency session log analyzer (15 commands, `--json` output, cross-project search)
-- 📦 **Install scripts updated** - Automatic cleanup of renamed skills, preserves project-specific extras
-- 🏷️ **3 hooks, 5 output styles** - Pre-commit lint, post-edit format, dangerous command warnings; Vesper, Spartan, Mentor, Executive, Pair
-
-**v1.7.0** (February 2026)
-- 🔄 **Schema v3.1** - `/save` and `/sync` upgraded for Claude Code 2.1.x and Opus 4.6
-  - Session ID tracking with `--resume` suggestions (bridges task state + conversation history)
-  - PR-linked sessions via `gh pr view` with `--from-pr` suggestions
-  - Native memory integration - `/save` writes to MEMORY.md (auto-loaded safety net)
-  - Dynamic plan path via `plansDirectory` setting (Claude Code v2.1.9+)
-  - Dropped legacy v2.0 migration code
-
-**v1.6.0** (February 2026)
-- 🚀 **Tech Debt Scanner** - Automated detection using parallel subagents (1,520 lines)
-  - Always-parallel architecture for fast analysis (2-15s depending on scope)
-  - 4 categories: Duplication, Security, Complexity, Dead Code
-  - Session-end workflow: catch issues while context is fresh
-  - Language-smart: Python, JS/TS, Go, Rust, SQL with AST-based detection
-  - [Boris Cherny's recommendation](https://x.com/bcherny/status/2017742741636321619): "Build a /techdebt slash command and run it at the end of every session"
-
-**v1.5.2** (February 2026)
-- 🆕 Added `cli-ops`, `screenshot`, `skill-creator` skills (+3 skills, now 42 total)
-- 📚 Enhanced skill-creator with [official Anthropic docs](https://github.com/anthropics/skills) and best practices (+554 lines)
-- 🐛 Fixed `/sync` filesystem scanning issue on Windows (Git Bash compatibility)
 
 [View full changelog →](CHANGELOG.md)
 
