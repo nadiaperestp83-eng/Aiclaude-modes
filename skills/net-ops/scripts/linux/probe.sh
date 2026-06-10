@@ -10,6 +10,24 @@ TEST_HOST="${TEST_HOST:-google.com}"
 TEST_IPS=("1.1.1.1" "8.8.8.8")
 TIMEOUT="${TIMEOUT:-5}"
 
+for arg in "$@"; do
+    case "$arg" in
+        --help|-h)
+            cat <<EOF
+Usage: $0 [--redact] [--json] [--quick]
+
+  --redact   Mask private IPs, MAC addresses, and *.ts.net tailnet names
+  --json     Newline-delimited JSON output (for piping to jq, dashboards)
+  --quick    Skip rungs 1-4 and 7 if the last full run cached as healthy
+             (cache: \${TMPDIR:-/tmp}/net-ops/last-state.json, TTL 10min)
+
+Compose freely: --json + --redact emits sanitized NDJSON.
+Env: TEST_HOST (default google.com), TIMEOUT (default 5s).
+EOF
+            exit 0 ;;
+    esac
+done
+
 # shellcheck source=../_lib/redact.sh
 source "$(dirname "$0")/../_lib/redact.sh"
 # shellcheck source=../_lib/output.sh
