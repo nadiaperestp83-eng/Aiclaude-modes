@@ -52,6 +52,9 @@ Is this a reference/lookup task?
 | **javascript-ops** | javascript, node, esm, async/await, event loop |
 | **astro-ops** | astro, islands, content collections, partial hydration |
 | **laravel-ops** | laravel, eloquent, artisan, sanctum, pest |
+| **payloadcms-ops** | payload, payload cms, headless cms, collections |
+| **craftcms-ops** | craft, craftcms, twig, matrix fields |
+| **asus-router-ops** | asus router, asuswrt, merlin, network hardening |
 | **nginx-ops** | nginx, reverse proxy, ssl, load balancer, proxy_pass |
 | **cloudflare-ops** | cloudflare, workers, KV, D1, R2, pages, wrangler, edge |
 | **cypress-ops** | cypress, e2e, component testing, custom commands, stubbing |
@@ -71,15 +74,12 @@ Is this a reference/lookup task?
 | Agent | Triggers |
 |-------|----------|
 | **firecrawl-expert** | web scraping, crawling, anti-bot |
-| **payloadcms-expert** | payload, headless cms |
-| **craftcms-expert** | craft, craftcms, twig |
-| **asus-router-expert** | asus router, asuswrt, merlin |
 | **project-organizer** | restructure, organize, cleanup |
 | **git-agent** | commit, push, PR (dispatched by git-ops) |
 | **Explore** | "where is", "find" |
 | **Plan** | design, architect |
 
-For Cloudflare/Workers, Cypress/E2E, shell scripting, and Claude Code extension work, use the matching `-ops` skill (`cloudflare-ops`, `cypress-ops`, `bash-ops`, `claude-code-ops`). For language/framework work (Python, TypeScript, React, Postgres, etc.), use the matching `-ops` skill — or dispatch `general-purpose` with an instruction to read that skill's SKILL.md first.
+For Cloudflare/Workers, Cypress/E2E, shell scripting, Claude Code extension work, and CMS/device domains (Payload, Craft, Asus routers), use the matching `-ops` skill (`cloudflare-ops`, `cypress-ops`, `bash-ops`, `claude-code-ops`, `payloadcms-ops`, `craftcms-ops`, `asus-router-ops`). For language/framework work (Python, TypeScript, React, Postgres, etc.), use the matching `-ops` skill — or dispatch `general-purpose` with an instruction to read that skill's SKILL.md first.
 
 ## How to Launch
 

@@ -66,7 +66,7 @@ color: blue
 ```
 
 **YAML Frontmatter Fields:**
-- `name` (required): Unique identifier, lowercase-with-hyphens (e.g., "asus-router-expert")
+- `name` (required): Unique identifier, lowercase-with-hyphens (e.g., "redis-expert")
 - `description` (required): Clear, specific description of when to use this agent
   - No strict length limit - prioritize clarity over brevity
   - Can include examples, use cases, and context

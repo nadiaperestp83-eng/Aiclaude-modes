@@ -79,6 +79,9 @@ deprecated_items=(
     "$CLAUDE_DIR/agents/bash-expert.md"          # -> skills/bash-ops
     "$CLAUDE_DIR/agents/claude-architect.md"     # -> skills/claude-code-ops
     "$CLAUDE_DIR/agents/aws-fargate-ecs-expert.md" # -> skills/container-orchestration
+    "$CLAUDE_DIR/agents/craftcms-expert.md"      # -> skills/craftcms-ops
+    "$CLAUDE_DIR/agents/payloadcms-expert.md"    # -> skills/payloadcms-ops
+    "$CLAUDE_DIR/agents/asus-router-expert.md"   # -> skills/asus-router-ops
 )
 
 # Renamed skills: -patterns -> -ops (March 2026)

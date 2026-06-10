@@ -15,7 +15,7 @@ Brief description of the project and what it does.
 |------|-------|----------------|
 | Web scraping | `firecrawl-expert` | "Extract structured data from this site" |
 | Project cleanup | `project-organizer` | "Restructure this directory layout" |
-| CMS modeling | `payloadcms-expert` | "Design these collections and access control" |
+| Git operations | `git-agent` | "Commit and open a PR for these changes" |
 
 ## Primary Agents
 

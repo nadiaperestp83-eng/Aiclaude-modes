@@ -13,6 +13,9 @@ Complete reference for all available agents in the Task tool.
 | `bash-expert` | `bash-ops` skill |
 | `aws-fargate-ecs-expert` | `container-orchestration` skill |
 | `claude-architect` | `claude-code-ops` skill |
+| `craftcms-expert` | `craftcms-ops` skill |
+| `payloadcms-expert` | `payloadcms-ops` skill |
+| `asus-router-expert` | `asus-router-ops` skill |
 
 For these, invoke the skill directly, or dispatch `general-purpose` with an instruction to read the skill's SKILL.md first.
 
@@ -34,61 +37,6 @@ For these, invoke the skill directly, or dispatch `general-purpose` with an inst
 - Blocked site access
 - Data extraction pipelines
 - Crawl architecture
-
----
-
-### payloadcms-expert
-
-**Triggers:** payload, payload cms, headless cms
-
-**Capabilities:**
-- Payload CMS architecture
-- Collection configuration
-- Access control design
-- Media handling
-- Multi-tenant setup
-
-**Best For:**
-- Payload project setup
-- Access control design
-- Schema planning
-- Integration patterns
-
----
-
-### craftcms-expert
-
-**Triggers:** craft, craftcms, twig
-
-**Capabilities:**
-- Craft CMS development
-- Twig templates
-- Plugin development
-- Matrix fields
-- GraphQL API
-
-**Best For:**
-- Craft CMS projects
-- Template development
-- Custom field types
-- Content modeling
-
----
-
-### asus-router-expert
-
-**Triggers:** asus router, asuswrt, merlin, network hardening
-
-**Capabilities:**
-- Asus router configuration
-- Asuswrt-Merlin firmware
-- Network hardening
-- VPN and firewall setup
-
-**Best For:**
-- Router configuration
-- Home network security
-- Firmware feature guidance
 
 ---
 

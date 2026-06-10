@@ -28,20 +28,20 @@ feature releases live in the README "Recent Updates" section.
   `.github/workflows/freshness.yml` runs the live drift checks weekly (advisory)
 
 ### Removed
-- **17 expert agents** deprecated as part of the skills-first restructure
-  (23 → 6 agents):
+- **20 expert agents** deprecated as part of the skills-first restructure
+  (23 → 3 agents):
   - 11 language/framework experts → their `-ops` skill twins (python,
     typescript, javascript, go, rust, react, vue, astro, laravel, sql, postgres)
-  - cypress-expert → new `cypress-ops` skill; cloudflare-expert +
-    wrangler-expert → new `cloudflare-ops` skill; bash-expert → new `bash-ops`
-    skill
+  - cypress-expert → `cypress-ops`; cloudflare-expert + wrangler-expert →
+    `cloudflare-ops`; bash-expert → `bash-ops`; craftcms-expert → `craftcms-ops`;
+    payloadcms-expert → `payloadcms-ops`; asus-router-expert → `asus-router-ops`
   - claude-architect → folded into `claude-code-ops`; aws-fargate-ecs-expert →
     folded into `container-orchestration`
   Per Anthropic's guidance, knowledge belongs in skills (progressive disclosure,
-  single source of truth); subagents are reserved for context isolation. Only
-  genuine workers (git-agent) and too-niche-for-always-on-budget domains
-  (firecrawl, project-organizer, craftcms, payloadcms, asus-router) kept agent
-  form. Dispatching skills route `general-purpose` agents with skill preloading.
+  single source of truth); subagents are reserved for context isolation. The
+  only agents that remain are pure isolation/worker roles: `git-agent`,
+  `firecrawl-expert`, `project-organizer`. Dispatching skills route
+  `general-purpose` agents with skill preloading.
 - `claude-code-debug`, `claude-code-headless`, `claude-code-hooks` skills -
   merged into `claude-code-ops` (content was written against Claude Code
   ~2.0; the stale `$TOOL_INPUT` hook contract is gone, stdin JSON is current)
@@ -64,6 +64,10 @@ feature releases live in the README "Recent Updates" section.
   cypress/cloudflare/wrangler/bash agents and refreshed against current docs
   (Cypress `data-test`/Test Replay/cy.session; wrangler `deploy` not `publish`,
   jsonc config, Workers static assets; defensive bash to the resource protocol)
+- **`craftcms-ops`, `payloadcms-ops`, `asus-router-ops` skills** - converted
+  from the niche CMS/router agents and refreshed against current docs (Craft 5
+  Matrix-as-entries; Payload 3 Next.js-native + Local API; Asuswrt-Merlin
+  hardening + WireGuard)
 - **Live security guard hooks**: `config-change-guard.sh` (ConfigChange event -
   scans edited Claude settings files for worm-persistence IOCs the moment
   they're written, reusing integrity-audit patterns) and `worktree-guard.sh`

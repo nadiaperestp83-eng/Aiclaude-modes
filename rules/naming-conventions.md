@@ -19,16 +19,19 @@ Consistent naming patterns for all claude-mods components.
 
 | Pattern | Example | Notes |
 |---------|---------|-------|
-| Framework | `craftcms-expert.md` | Frameworks/CMS |
-| CMS | `payloadcms-expert.md` | Headless CMS |
 | Tool | `firecrawl-expert.md` | Specific tools |
-| Specialized | `asus-router-expert.md` | Niche/device-specific |
+| Role | `project-organizer.md` | Activity/role-focused |
+
+> The `{domain}-expert` suffix is the convention for domain-expert agents
+> (e.g. `firecrawl-expert.md`). Worker agents like `git-agent` are the
+> exception — they take a `-agent` suffix, signalling a background
+> orchestrated worker rather than a `-expert` domain reference.
 
 **Frontmatter:**
 
 ```yaml
 ---
-name: craftcms-expert        # Match filename (without .md)
+name: firecrawl-expert       # Match filename (without .md)
 description: <one line>      # Concise capability summary
 model: sonnet|opus|haiku     # Recommended model
 ---
@@ -180,10 +183,10 @@ depends_on: [bad]     # snake_case wrong
 ## Anti-patterns
 
 ```
-BAD:  Craftcms-Expert.md     - PascalCase
-BAD:  craftcms_expert.md     - snake_case
-BAD:  craftcmsExpert.md      - camelCase
-GOOD: craftcms-expert.md     - kebab-case
+BAD:  Firecrawl-Expert.md    - PascalCase
+BAD:  firecrawl_expert.md    - snake_case
+BAD:  firecrawlExpert.md     - camelCase
+GOOD: firecrawl-expert.md    - kebab-case
 
 BAD:  skills/PythonPatterns/ - PascalCase directory
 GOOD: skills/python-pytest-ops/
@@ -199,7 +202,7 @@ GOOD: vesper.md              - lowercase
 
 | Component | Pattern | Example |
 |-----------|---------|---------|
-| Agent | `{domain}-expert.md` | `craftcms-expert.md` |
+| Agent | `{domain}-expert.md` | `firecrawl-expert.md` |
 | Skill | `{topic}-ops/SKILL.md` | `postgres-ops/SKILL.md` |
 | Command | `{action}.md` | `review.md` |
 | Rule | `{topic}.md` | `commit-style.md` |

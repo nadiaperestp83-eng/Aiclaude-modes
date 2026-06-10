@@ -64,7 +64,10 @@ $deprecated = @(
     "$claudeDir\agents\wrangler-expert.md",       # -> skills/cloudflare-ops
     "$claudeDir\agents\bash-expert.md",           # -> skills/bash-ops
     "$claudeDir\agents\claude-architect.md",      # -> skills/claude-code-ops
-    "$claudeDir\agents\aws-fargate-ecs-expert.md" # -> skills/container-orchestration
+    "$claudeDir\agents\aws-fargate-ecs-expert.md", # -> skills/container-orchestration
+    "$claudeDir\agents\craftcms-expert.md",       # -> skills/craftcms-ops
+    "$claudeDir\agents\payloadcms-expert.md",     # -> skills/payloadcms-ops
+    "$claudeDir\agents\asus-router-expert.md"     # -> skills/asus-router-ops
 )
 
 # Renamed skills: -patterns -> -ops (March 2026)

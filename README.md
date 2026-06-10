@@ -12,18 +12,18 @@
 
 > *A comprehensive extension toolkit that transforms Claude Code into a specialized development powerhouse.*
 
-**claude-mods** is a production-ready plugin that extends Claude Code with 84 specialized skills, 6 expert agents, 13 output styles, 11 hooks, and modern CLI tools designed for real-world development workflows. Whether you're debugging React hooks, optimizing PostgreSQL queries, or building production CLI applications, this toolkit equips Claude with the domain expertise and procedural knowledge to work at expert level across multiple technology stacks.
+**claude-mods** is a production-ready plugin that extends Claude Code with 87 specialized skills, 3 expert agents, 13 output styles, 11 hooks, and modern CLI tools designed for real-world development workflows. Whether you're debugging React hooks, optimizing PostgreSQL queries, or building production CLI applications, this toolkit equips Claude with the domain expertise and procedural knowledge to work at expert level across multiple technology stacks.
 
 Built on the [Agent Skills specification](https://agentskills.io/specification) (an open standard backed by Anthropic, Vercel, Google, Microsoft, and 40+ agent platforms), claude-mods fills critical gaps in Claude Code's capabilities: persistent session state that survives across machines, on-demand expert knowledge for specialized domains, token-efficient modern CLI tools (10-100x faster than traditional alternatives), and proven workflow patterns for TDD, code review, and feature development. The toolkit implements Anthropic's [recommended patterns for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents), ensuring your development context never vanishes when sessions end.
 
 From Python async patterns to Rust ownership models, from AWS Fargate deployments to Craft CMS development - claude-mods provides the specialized knowledge and tools that transform Claude from a general-purpose assistant into a domain expert who understands your stack, remembers your workflow, and ships production code.
 
-**6 agents. 84 skills. 13 styles. 11 hooks. 7 rules. One install.**
+**3 agents. 87 skills. 13 styles. 11 hooks. 7 rules. One install.**
 
 ## Recent Updates
 
 **v3.0.0** (June 2026)
-- **Skills-first restructure** - *Breaking:* the expert-agent layer was cut from 23 to 6. Eleven language/framework experts retired in favour of their `-ops` skill twins; cypress/cloudflare/bash became new `-ops` skills; claude-architect and aws-fargate folded into `claude-code-ops` and `container-orchestration`. Per Anthropic's guidance, knowledge belongs in skills (progressive disclosure, single source of truth) while subagents are reserved for context isolation — so only genuine workers (git-agent) and too-niche-for-always-on-budget domains kept agent form. Dispatching skills now route `general-purpose` agents that preload skill references.
+- **Skills-first restructure** - *Breaking:* the expert-agent layer was cut from 23 to 3. Per Anthropic's guidance, knowledge belongs in skills (progressive disclosure, single source of truth) and subagents are reserved for context isolation — so *all* domain-knowledge agents became `-ops` skills (the 11 language/framework experts → their twins; cypress/cloudflare/bash/craftcms/payloadcms/asus-router → new skills; claude-architect/aws-fargate folded into existing skills). The 3 remaining agents are pure isolation/worker roles: `git-agent` (background commits/PRs), `firecrawl-expert` (noisy multi-page scrapes), `project-organizer` (bulk restructure). Dispatching skills now route `general-purpose` agents that preload skill references.
 - **`claude-code-ops` skill** - claude-code-debug/-headless/-hooks merged and rebuilt from current official docs: the 30-event hook catalog with per-event JSON contracts, today's SKILL.md frontmatter spec, headless/CLI reference, and extension-debugging decision trees.
 - **Three new skills, doc-verified** - `claude-api-ops` (Messages API, tool use, prompt caching, structured outputs, Agent SDK), `playwright-ops` (selector hierarchy, fixtures, CI sharding, flake hunting), `terraform-ops` (state, modules, OIDC plan/apply, secrets).
 - **Live security guards, zero hand-wiring** - `config-change-guard.sh` scans Claude settings files for worm-persistence IOCs the moment they're edited; `worktree-guard.sh` mechanically enforces worktree boundaries. Plugin-level `hooks/hooks.json` auto-wires the security set on install.
@@ -61,7 +61,7 @@ Claude Code is powerful out of the box, but it has gaps. This toolkit fills them
 
 - **Session continuity** — Tasks vanish when sessions end. We fix that with `/save` and `/sync`, implementing Anthropic's [recommended pattern](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) for long-running agents.
 
-- **Expert-level knowledge on demand** — 80 on-demand skills covering React, TypeScript, Python, Go, Rust, PostgreSQL, and more, plus 6 specialized agents for domains that genuinely need a dedicated worker or are too niche for an always-on skill (git operations, web scraping, CMS platforms). Skills-first: knowledge loads when relevant instead of living in heavyweight agent prompts.
+- **Expert-level knowledge on demand** — 80 on-demand skills covering React, TypeScript, Python, Go, Rust, PostgreSQL, and more, plus 3 specialized agents reserved for genuine context-isolation/worker roles (git operations, web scraping, project reorganization). Skills-first: knowledge loads when relevant instead of living in heavyweight agent prompts.
 
 - **Modern CLI tools** — Stop using `grep`, `find`, and `cat`. Our rules automatically prefer `ripgrep`, `fd`, `eza`, and `bat` — 10-100x faster and token-efficient.
 
@@ -84,9 +84,9 @@ Claude Code is powerful out of the box, but it has gaps. This toolkit fills them
 ```
 claude-mods/
 ├── .claude-plugin/     # Plugin metadata
-├── agents/             # Expert subagents (6)
+├── agents/             # Expert subagents (3)
 ├── commands/           # Slash commands (2)
-├── skills/             # Custom skills (84)
+├── skills/             # Custom skills (87)
 ├── output-styles/      # Response personalities
 ├── hooks/              # Hook examples & docs
 ├── rules/              # Claude Code rules
@@ -183,6 +183,8 @@ See [skill-creator](skills/skill-creator/) for the complete guide.
 | [vue-ops](skills/vue-ops/) | Vue 3 Composition API, Pinia, Vue Router, Nuxt 3 |
 | [astro-ops](skills/astro-ops/) | Astro islands, content collections, rendering strategies, deployment |
 | [laravel-ops](skills/laravel-ops/) | Laravel Eloquent, architecture, authentication, testing with Pest |
+| [craftcms-ops](skills/craftcms-ops/) | Craft CMS 5 - entries/sections/fields, Matrix-as-entries, Twig, element queries, GraphQL, plugins |
+| [payloadcms-ops](skills/payloadcms-ops/) | Payload CMS 3 (Next.js-native) - collections/globals, Local API, access control, hooks, fields |
 | [cli-ops](skills/cli-ops/) | Production CLI tool patterns - agentic workflows, stream separation, exit codes |
 | [bash-ops](skills/bash-ops/) | Defensive Bash - strict mode, traps, safe argument parsing, semantic exit codes, shellcheck, CI scripts |
 | [cypress-ops](skills/cypress-ops/) | Cypress e2e + component testing - data-test selectors, cy.intercept, cy.session, Test Replay, flake diagnosis |
@@ -238,6 +240,7 @@ See [skill-creator](skills/skill-creator/) for the complete guide.
 | [windows-ops](skills/windows-ops/) | Windows workstation diagnostics - health audit, crash triage, drive mapping, dying-drive recovery |
 | [mac-ops](skills/mac-ops/) | macOS workstation diagnostics - TCC privacy permissions, wake reasons, Spotlight, APFS storage pressure |
 | [net-ops](skills/net-ops/) | Cross-platform network troubleshooting - layered ladder from link to app, IPv6 classifier, DoH detection, MTU/PMTU |
+| [asus-router-ops](skills/asus-router-ops/) | Asus / Asuswrt-Merlin routers - hardening, WireGuard/OpenVPN, segmentation, DNS privacy, JFFS scripting |
 
 #### CLI Tool Skills
 | Skill | Description |
@@ -342,16 +345,17 @@ See [skill-creator](skills/skill-creator/) for the complete guide.
 > because they have no skill twin (a distinct capability, or — like git-agent — a real background-worker role
 > that uses the isolation boundary).
 >
+> The end state is clean: **every domain-knowledge agent is now a skill**, and the only agents left are the
+> three whose value *is* the isolation mechanism — git-agent (a background worker), firecrawl-expert (large
+> noisy scrapes), and project-organizer (bulk filesystem restructure).
+>
 > Sources: [Agent Skills](https://code.claude.com/docs/en/skills) — progressive disclosure and on-demand
 > loading; [Subagents](https://code.claude.com/docs/en/sub-agents) — a separate context window for delegated work.
 
 | Agent | Description |
 |-------|-------------|
-| [asus-router-expert](agents/asus-router-expert.md) | Asus routers, network hardening, Asuswrt-Merlin |
-| [craftcms-expert](agents/craftcms-expert.md) | Craft CMS content modeling, Twig, plugins, GraphQL |
 | [firecrawl-expert](agents/firecrawl-expert.md) | Web scraping, crawling, parallel fetching, structured extraction |
 | [git-agent](agents/git-agent.md) | Background git operations - commits, PRs, releases (Sonnet) |
-| [payloadcms-expert](agents/payloadcms-expert.md) | Payload CMS architecture and configuration |
 | [project-organizer](agents/project-organizer.md) | Reorganize directory structures, cleanup |
 
 ### Rules
