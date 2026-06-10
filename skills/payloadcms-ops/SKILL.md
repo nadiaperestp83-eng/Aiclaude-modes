@@ -223,7 +223,7 @@ const { docs } = await payload.find({
 
 | File | Use |
 |------|-----|
-| `assets/collection.config.template.ts` | Heavily commented Payload 3 CollectionConfig starter (access + hooks + fields + upload), with adapt-points marked |
+| `assets/collection.config.template.ts` | Heavily commented Payload 3 CollectionConfig starter (access + hooks + fields), with adapt-points marked |
 
 ---
 

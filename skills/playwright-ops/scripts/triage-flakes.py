@@ -119,6 +119,8 @@ def main(argv=None):
         help="path to Playwright JSON report (default: ./results.json)",
     )
     p.add_argument("--json", action="store_true", help="emit a JSON envelope instead of TSV")
+    p.add_argument("-q", "--quiet", action="store_true",
+                   help="suppress the stderr summary header (errors still print)")
     p.add_argument(
         "-n",
         "--limit",
@@ -195,8 +197,9 @@ def main(argv=None):
     total = len(finds)
     flaky_n = sum(1 for f in finds if f["outcome"] == "flaky")
     unexp_n = sum(1 for f in finds if f["outcome"] == "unexpected")
-    err(f"=== Flake triage: {path.name} ===")
-    err(f"  {total} tests | {flaky_n} flaky | {unexp_n} unexpected | showing {len(capped)} of {len(shown)}")
+    if not args.quiet:
+        err(f"=== Flake triage: {path.name} ===")
+        err(f"  {total} tests | {flaky_n} flaky | {unexp_n} unexpected | showing {len(capped)} of {len(shown)}")
 
     if args.json:
         envelope = {

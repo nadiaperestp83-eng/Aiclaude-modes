@@ -10,6 +10,10 @@ metadata:
 
 # Cypress Operations
 
+**Version context (verified against docs.cypress.io, 2026-06):** Cypress 14.x, Test
+Replay (v13+), `cy.session` with `cacheAcrossSpecs`. APIs move — confirm against the live
+docs when a detail is load-bearing.
+
 End-to-end and component testing with Cypress (`cypress`, TS/JS). The runner executes
 tests *inside* a real browser via the **Cypress App** (`cypress open`) or headlessly
 (`cypress run`). The defining mental model: **`cy.*` commands are not promises** — they
