@@ -357,7 +357,7 @@ See [skill-creator](skills/skill-creator/) for the complete guide.
 | [scaffold](skills/scaffold/) | Project scaffolding - generate boilerplate for APIs, web apps, CLIs, monorepos |
 | [iterate](skills/iterate/) | Autonomous improvement loop - modify, measure, keep or discard, repeat. Inspired by Karpathy's autoresearch. |
 | [testing-ops](skills/testing-ops/) | Test strategy patterns - mocking, CI testing, test data design |
-| [claude-code-internals](skills/claude-code-internals/) | Claude Code internals - full hook event catalog, skill frontmatter spec, headless/CLI reference, extension debugging |
+| [claude-code-ops](skills/claude-code-ops/) | Claude Code internals - full hook event catalog, skill frontmatter spec, headless/CLI reference, extension debugging |
 | [playwright-ops](skills/playwright-ops/) | Playwright e2e testing - selector hierarchy, fixtures, network mocking, CI sharding, flake hunting |
 
 ### Hooks

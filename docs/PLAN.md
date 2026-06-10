@@ -43,7 +43,7 @@ Counts are enforced by the CI doc-drift gate (see roadmap) — if this table rot
       typescript, javascript, go, rust, react, vue, astro, laravel, sql,
       postgres). Unique content folded into twin skills; dispatching skills
       now route general-purpose agents with skill preloading. 23 → 12 agents.
-- [x] **claude-code-internals**: merged + refreshed claude-code-debug /
+- [x] **claude-code-ops**: merged + refreshed claude-code-debug /
       claude-code-headless / claude-code-hooks against current official docs
       (30-event hook catalog, current skill frontmatter, current CLI flags).
 - [x] **New skills**: claude-api-ops (Messages API, tool use, caching, Agent SDK),
