@@ -28,3 +28,9 @@ jobs:
 
       - name: Validate extensions (frontmatter, naming, structure)
         run: bash tests/validate.sh
+
+      - name: Doc-drift gate (docs must match disk)
+        run: bash tests/doc-drift.sh
+
+      - name: Run skill behavioural test suites
+        run: bash tests/run-skill-tests.sh
