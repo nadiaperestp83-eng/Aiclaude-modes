@@ -1,0 +1,52 @@
+name: Freshness (live drift checks)
+
+# Live staleness checks for skills that encode fast-moving external facts
+# (SKILL-RESOURCE-PROTOCOL.md §7). These hit the network, so they run on a
+# schedule — NEVER as a PR gate. A network blip / rate-limit exits 7 and is
+# treated as "skip, retry next run"; only a confirmed drift (exit 10) fails
+# the job loudly.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"   # 06:00 UTC every Monday
+  workflow_dispatch: {}     # manual trigger
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Model table vs live Models API
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set +e
+          python skills/claude-api-ops/scripts/check-model-table.py --live
+          rc=$?
+          # 0 = in sync, 7 = unavailable (no key / unreachable) -> advisory skip,
+          # 10 = drift -> fail. Anything else is a real error.
+          if [ "$rc" -eq 10 ]; then echo "::error::model table drifted from the live Models API"; exit 1; fi
+          if [ "$rc" -eq 7 ]; then echo "::warning::model-table live check unavailable (no key / unreachable) — skipped"; fi
+          exit 0
+
+      - name: GitHub Action refs still resolve
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set +e
+          # Scan every shipped workflow asset + the repo's own workflows.
+          targets="skills/terraform-ops/assets/github-actions-terraform.yml .github/workflows/*.yml"
+          bash skills/terraform-ops/scripts/check-action-refs.sh --live $targets
+          rc=$?
+          if [ "$rc" -eq 10 ]; then echo "::error::a GitHub Action 'uses:' ref no longer resolves"; exit 1; fi
+          if [ "$rc" -eq 7 ]; then echo "::warning::action-ref live check rate-limited / unreachable — skipped"; fi
+          exit 0

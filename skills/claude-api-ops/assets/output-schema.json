@@ -1,0 +1,39 @@
+{
+  "_comment": "Canonical structured-outputs request body for the Anthropic Messages API. Pass the `output_config` object below in client.messages.create(...). This is the current `output_config.format` shape — NOT the deprecated top-level `output_format` param. Adapt `schema.properties` and `required` to your data; keep `additionalProperties: false` so the model can't add stray keys. Supported on Opus 4.8/4.7/4.6/4.5, Sonnet 4.6/4.5, Haiku 4.5 — NOT Fable 5 (use system-prompt instructions or strict tool use there).",
+  "model": "claude-opus-4-8",
+  "max_tokens": 1024,
+  "messages": [
+    {
+      "role": "user",
+      "content": "Extract the contact: Jane Doe (jane@example.com) wants the Enterprise plan and asked for a demo."
+    }
+  ],
+  "output_config": {
+    "format": {
+      "type": "json_schema",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Full name of the contact"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "plan": {
+            "type": "string",
+            "enum": ["Free", "Pro", "Enterprise"]
+          },
+          "demo_requested": {
+            "type": "boolean",
+            "description": "Whether the contact asked for a demo"
+          }
+        },
+        "required": ["name", "email", "plan", "demo_requested"],
+        "additionalProperties": false
+      }
+    }
+  }
+}

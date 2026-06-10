@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Offline resource checks — runs in PR CI, may block.
+#
+# Exercises the skill verifier/scanner scripts in their OFFLINE/structural mode
+# (no network) and asserts basic protocol compliance (SKILL-RESOURCE-PROTOCOL.md):
+# every shipped verifier responds to --help with exit 0 and passes its own
+# offline self-check against the skill's current content.
+#
+# The network-dependent --live drift checks run in the scheduled freshness
+# workflow, never here — a rate-limit must never block an unrelated PR (§7).
+#
+# Exit: 0 all checks pass, 1 a check failed.
+set -uo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT" || exit 1
+
+# Pick a working python (Windows Store python3 stub exits 49 on --version).
+PY="python3"
+if ! "$PY" --version >/dev/null 2>&1; then PY="python"; fi
+
+fail=0
+pass() { echo "  ok   $*"; }
+bad()  { echo "  FAIL $*"; fail=1; }
+
+run() { # description, expected-exit, command...
+    local desc="$1" want="$2"; shift 2
+    "$@" >/dev/null 2>&1; local got=$?
+    if [ "$got" -eq "$want" ]; then pass "$desc (exit $got)"; else bad "$desc (want $want, got $got)"; fi
+}
+
+echo "== claude-api-ops: model-table verifier"
+run "model-table --offline consistent" 0 "$PY" skills/claude-api-ops/scripts/check-model-table.py --offline
+run "model-table --help"               0 "$PY" skills/claude-api-ops/scripts/check-model-table.py --help
+
+echo "== terraform-ops: action-ref verifier"
+run "action-refs --offline well-formed" 0 bash skills/terraform-ops/scripts/check-action-refs.sh --offline
+run "action-refs --help"                0 bash skills/terraform-ops/scripts/check-action-refs.sh --help
+
+echo "== claude-code-ops: hooks.json validator"
+run "hooks-lint clean on repo hooks.json" 0 "$PY" skills/claude-code-ops/scripts/validate-hooks-json.py hooks/hooks.json
+run "hooks-lint --help"                   0 "$PY" skills/claude-code-ops/scripts/validate-hooks-json.py --help
+
+echo "== playwright-ops: flake-triage"
+run "flake-triage --help" 0 "$PY" skills/playwright-ops/scripts/triage-flakes.py --help
+
+echo "== protocol: every new verifier is executable + compiles"
+for s in skills/claude-api-ops/scripts/check-model-table.py \
+         skills/claude-code-ops/scripts/validate-hooks-json.py \
+         skills/playwright-ops/scripts/triage-flakes.py; do
+    "$PY" -m py_compile "$s" 2>/dev/null && pass "py_compile $(basename "$s")" || bad "py_compile $(basename "$s")"
+done
+bash -n skills/terraform-ops/scripts/check-action-refs.sh 2>/dev/null \
+    && pass "bash -n check-action-refs.sh" || bad "bash -n check-action-refs.sh"
+
+echo
+if [ "$fail" -eq 0 ]; then echo "resource checks: clean"; exit 0; fi
+echo "resource checks: failures above"; exit 1

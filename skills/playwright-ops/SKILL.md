@@ -230,6 +230,20 @@ that only passes single-worker is broken, not "sensitive".
 network, console per action). Local: `npx playwright test --ui` or `PWDEBUG=1` / `page.pause()`.
 Repro: `--repeat-each=20 --workers=4`. Playbook: [references/flake-hunting.md](references/flake-hunting.md)
 
+**Triage a whole run without eyeballing the report** — generate the JSON reporter output, then
+rank the offenders with the bundled triage tool ([scripts/triage-flakes.py](scripts/triage-flakes.py)):
+
+```bash
+npx playwright test --reporter=json > results.json   # or reporter: [['json', { outputFile: 'results.json' }]]
+scripts/triage-flakes.py results.json                # flaky tests first, then hard fails
+```
+
+It emits a ranked TSV (or `--json` envelope, schema `claude-mods.playwright-ops.flake-triage/v1`):
+flaky tests (passed only on retry) first — ordered by retry count then duration — followed by
+`unexpected` hard failures, each with `file:line`, the status sequence (`failed->passed`), and total
+duration. **Exit 10 means flakes/fails were found** (the triage signal — go fix them); exit 0 means a
+clean suite. `--outcome all` includes the passing tests for context; `-n N` caps rows.
+
 ## CI (GitHub Actions)
 
 ```yaml
@@ -312,4 +326,5 @@ automation — distinct from the test runner; don't conflate browsing automation
 | [references/network-and-api.md](references/network-and-api.md) | route/fulfill/abort, HAR replay, API testing, hybrid seeding, WebSocket |
 | [references/ci-patterns.md](references/ci-patterns.md) | Full GH Actions workflows: basic, sharded+merge, container, caching, reporters |
 | [references/flake-hunting.md](references/flake-hunting.md) | Systematic flake diagnosis: traces, repro loops, common causes + fixes |
+| [scripts/triage-flakes.py](scripts/triage-flakes.py) | Parse a Playwright JSON report and rank flaky/failing tests (exit 10 = findings); see Flake diagnosis above |
 | [assets/playwright.config.template.ts](assets/playwright.config.template.ts) | Commented production config template |

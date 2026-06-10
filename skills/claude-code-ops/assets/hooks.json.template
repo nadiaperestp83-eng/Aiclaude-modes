@@ -1,0 +1,63 @@
+// ============================================================================
+// hooks.json.template — starter Claude Code plugin hooks file (JSONC)
+// ----------------------------------------------------------------------------
+// COPY THIS, then STRIP EVERY COMMENT: the live `hooks/hooks.json` must be
+// STRICT JSON (no `//` lines, no trailing commas). Claude Code does NOT parse
+// comments. Save the comment-free result as `hooks/hooks.json` in your plugin.
+//
+// Validate after editing:
+//   python skills/claude-code-ops/scripts/validate-hooks-json.py hooks/hooks.json
+//
+// Contract source of truth: skills/claude-code-ops/references/hooks-reference.md
+// ----------------------------------------------------------------------------
+// Rules this template demonstrates:
+//   * Shape is { "hooks": { <Event>: [ <matcher-group>, ... ] } }.
+//   * Event keys must be in the 30-event catalog (PreToolUse, PostToolUse,
+//     SessionStart, ... — see hooks-reference.md).
+//   * "matcher" is a STRING, never an array. Use "Edit|Write", not ["Edit","Write"].
+//     A "*"/""/omitted matcher matches everything.
+//   * Command paths use ${CLAUDE_PLUGIN_ROOT} (plugin install dir) so they
+//     resolve no matter the cwd. Project hooks use ${CLAUDE_PROJECT_DIR}.
+// ============================================================================
+{
+  "hooks": {
+    // Before every Bash tool call — e.g. block/flag dangerous commands.
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/pre-bash-check.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    // After a file is written or edited — note the string "Edit|Write" matcher.
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/post-edit-format.sh\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    // At session start — no matcher needed (this event takes none).
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

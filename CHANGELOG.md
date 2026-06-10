@@ -9,6 +9,24 @@ feature releases live in the README "Recent Updates" section.
 
 ## [3.0.0] - 2026-06-10
 
+### Added (skill resource protocol)
+- **`docs/SKILL-RESOURCE-PROTOCOL.md`** - the build standard for skill `scripts/`,
+  `assets/`, and `references/`: stream separation, semantic exit codes, `--help`
+  with EXAMPLES, first-comment-block contract, `--json` envelopes, agent safety,
+  the resource-scaffold checklist, and the **staleness-verifier pattern** (an
+  `--offline` structural check that gates PR CI plus a `--live` drift check that
+  runs scheduled, never blocking a PR on a network blip)
+- Four verifier/scanner scripts built to the protocol:
+  `claude-api-ops/check-model-table.py` (model+pricing table drift),
+  `terraform-ops/check-action-refs.sh` (GitHub Action `uses:` refs resolve —
+  catches the exact `trivy-action` tag bug from v3.0),
+  `claude-code-ops/validate-hooks-json.py` (lint a hooks.json against the
+  30-event catalog), `playwright-ops/triage-flakes.py` (rank flaky tests from a
+  JSON report). Plus assets: `agentic-loop.py`, `output-schema.json`,
+  `hooks.json.template`
+- CI: `tests/check-resources.sh` runs the offline verifiers in PR CI;
+  `.github/workflows/freshness.yml` runs the live drift checks weekly (advisory)
+
 ### Removed
 - **11 language/framework expert agents** deprecated in favour of their `-ops`
   skill twins (python, typescript, javascript, go, rust, react, vue, astro,

@@ -254,6 +254,44 @@ Built-in tools (Read/Write/Edit/Bash/Glob/Grep/WebSearch/WebFetch/...), hooks
 | String-matching error messages | Fragile retries | Typed exceptions: `anthropic.RateLimitError` etc. |
 | Raw string-matching tool `input` | Breaks on escaping changes | Always `json.loads()` / use parsed `block.input` |
 
+## Resources & Verification
+
+This skill ships a staleness verifier and two copy-and-adapt starter assets. The
+model table and pricing above are the facts most likely to drift — run the
+verifier when you suspect they're stale.
+
+**`scripts/check-model-table.py`** — guards the Current Models table (this file)
+and the per-model prompt-cache minimum table
+([references/caching-and-cost.md](references/caching-and-cost.md)) against drift.
+Two modes per the [resource protocol §7](../../docs/SKILL-RESOURCE-PROTOCOL.md):
+
+```bash
+# Structural (default, no network): every row well-formed, ids carry no date
+# suffix, prices numeric, the two files agree on the model lineup. Exit 4 on a
+# malformed/contradictory row.
+python skills/claude-api-ops/scripts/check-model-table.py --offline
+python skills/claude-api-ops/scripts/check-model-table.py --offline --json | python -m json.tool
+
+# Live (advisory, needs ANTHROPIC_API_KEY): curls the Models API and compares
+# its id set against the documented ids. Exit 10 if a documented id is gone or a
+# newer alias id is missing from the table; exit 7 (not a failure) if the key is
+# unset or the API is unreachable. Live mode checks model-ID coverage ONLY — the
+# API returns no pricing, so pricing/context drift stays an --offline + docs concern.
+ANTHROPIC_API_KEY=sk-... python skills/claude-api-ops/scripts/check-model-table.py --live
+```
+
+**`assets/agentic-loop.py`** — a minimal, runnable tool-use loop (define a tool,
+call `messages.create`, loop while `stop_reason == "tool_use"`, append
+`tool_result`, re-request until `end_turn`). Copy it as the starting point when
+building a manual agent loop; the `>>> ADAPT` marks show what to change.
+
+**`assets/output-schema.json`** — a known-good structured-outputs request body in
+the canonical `output_config.format` shape (with `additionalProperties: false`
+and a `required` array). Copy and reshape `schema.properties` when adding JSON
+outputs; see [references/structured-outputs.md](references/structured-outputs.md)
+for the rules. (Not supported on Fable 5 — that model uses system-prompt
+instructions instead.)
+
 ## Reference Files
 
 | File | Covers |

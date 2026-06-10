@@ -25,6 +25,26 @@ One skill for the machinery of Claude Code itself: the **hook system**, the **sk
 | `claude -p`; CI scripts; output parsing; stream-json; structured output; background agents | [references/headless-reference.md](references/headless-reference.md) |
 | Anything configured isn't taking effect; plugin validation; /doctor | [references/debugging-reference.md](references/debugging-reference.md) |
 
+## Resources
+
+| Resource | Use |
+|---|---|
+| [scripts/validate-hooks-json.py](scripts/validate-hooks-json.py) | Lint a `hooks.json` (or a settings.json `"hooks"` block) against the 30-event contract before trusting it |
+| [assets/hooks.json.template](assets/hooks.json.template) | Starter `hooks.json` — one of each common pattern (PreToolUse `Bash`, PostToolUse `Edit\|Write`, SessionStart), `${CLAUDE_PLUGIN_ROOT}`-rooted |
+
+**Validate a hooks file** (offline, structural — catches the unknown-event and matcher-as-array footguns the docs warn about):
+
+```bash
+# Lint this repo's own plugin hooks file (default target if no path given):
+python skills/claude-code-ops/scripts/validate-hooks-json.py hooks/hooks.json
+# → exit 0 clean, 10 findings (lists them), 4 malformed JSON, 3 not-found.
+# Machine-readable for CI:
+python skills/claude-code-ops/scripts/validate-hooks-json.py --json hooks/hooks.json | jq '.data[]'
+# --strict makes portability warnings (unrooted command paths) count as findings.
+```
+
+**Start a new hooks file** from `assets/hooks.json.template` — copy it, strip the `//` comment lines (the live `hooks.json` must be strict JSON), then validate the result with the script above.
+
 ## Mental Model
 
 - **Skills** = prompt content loaded on demand (descriptions always in context, body on invoke). Guidance, not guarantees.

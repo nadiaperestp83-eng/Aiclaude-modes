@@ -23,6 +23,9 @@ Terraform / OpenTofu infrastructure-as-code: layout, state, modules, safety, CI/
 | [references/cicd-pipelines.md](references/cicd-pipelines.md) | GitHub Actions plan/apply, OIDC auth, policy gates (tflint/trivy/checkov/OPA), Atlantis/HCP |
 | [references/security-and-secrets.md](references/security-and-secrets.md) | Secrets in state, ephemeral resources, write-only arguments, SOPS/Vault, sensitive limits |
 | [assets/github-actions-terraform.yml](assets/github-actions-terraform.yml) | Ready-to-adapt PR-plan + OIDC-apply workflow |
+| [scripts/check-action-refs.sh](scripts/check-action-refs.sh) | Staleness verifier for any workflow's `uses:` action refs (offline structural / live API resolve) |
+
+> The action versions pinned in `github-actions-terraform.yml` are **point-in-time** (verified 2026-06). Run `scripts/check-action-refs.sh --live` before adopting — a tag that was valid at write time may have been retracted or never existed (e.g. `trivy-action@0.33.1` vs the real `v0.33.1`).
 
 ## Project Layout Decision Tree
 
@@ -182,6 +185,25 @@ Nightly     → plan -detailed-exitcode → exit 2 ⇒ drift alert
 | Atlantis | Self-hosted PR automation, `atlantis plan/apply` comments, locking per dir |
 | HCP Terraform / Terraform Cloud | Managed runs, Sentinel policy, state hosting; free ≤500 resources |
 | Spacelift / env0 / Digger / Scalr | Commercial Atlantis-likes; Digger runs inside your Actions |
+
+### Verification — `uses:` ref staleness
+
+GitHub Action versions rot: a tag gets retracted, or a workflow pins one that never existed. [scripts/check-action-refs.sh](scripts/check-action-refs.sh) lints every `uses: owner/repo@ref` line. It's **general** — pass any workflow file(s) as positionals (default: this skill's own `assets/github-actions-terraform.yml`).
+
+```bash
+# Structural only, no network — well-formedness of every uses: ref (CI-safe gate).
+# Floating @main/@master → WARN (exit 0; use --strict to fail). Malformed → exit 4.
+scripts/check-action-refs.sh --offline .github/workflows/ci.yml
+
+# Live — resolve each ref against the GitHub API. A 404 (ref doesn't exist) → exit 10
+# DRIFT; API unreachable/rate-limited → exit 7 (advisory, never fails the build, §7).
+# Set GITHUB_TOKEN to dodge the unauthenticated rate limit.
+GITHUB_TOKEN=$GH_PAT scripts/check-action-refs.sh --live .github/workflows/*.yml
+
+scripts/check-action-refs.sh --json --offline | jq '.data[] | select(.status!="ok")'
+```
+
+`--live` is the check that catches the classic `aquasecurity/trivy-action@0.33.1` mistake — that tag 404s; the real one is `v0.33.1`. Run live on a schedule (never as a blocking PR gate), offline in PR CI.
 
 ## Testing Quick Reference
 
