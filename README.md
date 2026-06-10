@@ -12,13 +12,13 @@
 
 > *A comprehensive extension toolkit that transforms Claude Code into a specialized development powerhouse.*
 
-**claude-mods** is a production-ready plugin that extends Claude Code with 23 expert agents, 80 specialized skills, 13 output styles, 9 hooks, and modern CLI tools designed for real-world development workflows. Whether you're debugging React hooks, optimizing PostgreSQL queries, or building production CLI applications, this toolkit equips Claude with the domain expertise and procedural knowledge to work at expert level across multiple technology stacks.
+**claude-mods** is a production-ready plugin that extends Claude Code with 80 specialized skills, 12 expert agents, 13 output styles, 9 hooks, and modern CLI tools designed for real-world development workflows. Whether you're debugging React hooks, optimizing PostgreSQL queries, or building production CLI applications, this toolkit equips Claude with the domain expertise and procedural knowledge to work at expert level across multiple technology stacks.
 
 Built on the [Agent Skills specification](https://agentskills.io/specification) (an open standard backed by Anthropic, Vercel, Google, Microsoft, and 40+ agent platforms), claude-mods fills critical gaps in Claude Code's capabilities: persistent session state that survives across machines, on-demand expert knowledge for specialized domains, token-efficient modern CLI tools (10-100x faster than traditional alternatives), and proven workflow patterns for TDD, code review, and feature development. The toolkit implements Anthropic's [recommended patterns for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents), ensuring your development context never vanishes when sessions end.
 
 From Python async patterns to Rust ownership models, from AWS Fargate deployments to Craft CMS development - claude-mods provides the specialized knowledge and tools that transform Claude from a general-purpose assistant into a domain expert who understands your stack, remembers your workflow, and ships production code.
 
-**23 agents. 80 skills. 13 styles. 9 hooks. 7 rules. One install.**
+**12 agents. 80 skills. 13 styles. 9 hooks. 7 rules. One install.**
 
 ## Recent Updates
 
@@ -136,7 +136,7 @@ Claude Code is powerful out of the box, but it has gaps. This toolkit fills them
 
 - **Session continuity** — Tasks vanish when sessions end. We fix that with `/save` and `/sync`, implementing Anthropic's [recommended pattern](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) for long-running agents.
 
-- **Expert-level knowledge on demand** — 23 specialized agents covering React, TypeScript, Python, Go, Rust, AWS, PostgreSQL, and more. Each agent is deeply researched with real-world patterns, not generic advice.
+- **Expert-level knowledge on demand** — 80 on-demand skills covering React, TypeScript, Python, Go, Rust, PostgreSQL, and more, plus 12 specialized agents for domains that need a dedicated worker (Cloudflare, Cypress, git operations, web scraping). Skills-first: knowledge loads when relevant instead of living in heavyweight agent prompts.
 
 - **Modern CLI tools** — Stop using `grep`, `find`, and `cat`. Our rules automatically prefer `ripgrep`, `fd`, `eza`, and `bat` — 10-100x faster and token-efficient.
 
@@ -159,7 +159,7 @@ Claude Code is powerful out of the box, but it has gaps. This toolkit fills them
 ```
 claude-mods/
 ├── .claude-plugin/     # Plugin metadata
-├── agents/             # Expert subagents (23)
+├── agents/             # Expert subagents (12)
 ├── commands/           # Slash commands (2)
 ├── skills/             # Custom skills (80)
 ├── output-styles/      # Response personalities
@@ -393,9 +393,13 @@ See [skill-creator](skills/skill-creator/) for the complete guide.
 
 ### Agents
 
+> **Skills-first (v3.0):** language/framework expert agents (python-expert, react-expert, etc.) were
+> deprecated in favour of their `-ops` skill twins — unique agent content was folded into the skills.
+> Dispatching skills (review, testgen, perf-ops, security-ops, explain) now route to `general-purpose`
+> agents that preload the relevant skill references. The agents below remain because no skill twin exists.
+
 | Agent | Description |
 |-------|-------------|
-| [astro-expert](agents/astro-expert.md) | Astro projects, SSR/SSG, Cloudflare deployment |
 | [asus-router-expert](agents/asus-router-expert.md) | Asus routers, network hardening, Asuswrt-Merlin |
 | [aws-fargate-ecs-expert](agents/aws-fargate-ecs-expert.md) | Amazon ECS on Fargate, container deployment |
 | [bash-expert](agents/bash-expert.md) | Defensive Bash scripting, CI/CD pipelines |
@@ -405,18 +409,8 @@ See [skill-creator](skills/skill-creator/) for the complete guide.
 | [cypress-expert](agents/cypress-expert.md) | Cypress E2E and component testing, custom commands, CI/CD |
 | [firecrawl-expert](agents/firecrawl-expert.md) | Web scraping, crawling, parallel fetching, structured extraction |
 | [git-agent](agents/git-agent.md) | Background git operations - commits, PRs, releases (Sonnet) |
-| [go-expert](agents/go-expert.md) | Go idioms, concurrency, error handling, performance |
-| [javascript-expert](agents/javascript-expert.md) | Modern JavaScript, async patterns, optimization |
-| [laravel-expert](agents/laravel-expert.md) | Laravel framework, Eloquent, testing |
 | [payloadcms-expert](agents/payloadcms-expert.md) | Payload CMS architecture and configuration |
-| [postgres-expert](agents/postgres-expert.md) | PostgreSQL management and optimization |
 | [project-organizer](agents/project-organizer.md) | Reorganize directory structures, cleanup |
-| [python-expert](agents/python-expert.md) | Advanced Python, testing, optimization |
-| [react-expert](agents/react-expert.md) | React hooks, state management, Server Components, performance |
-| [rust-expert](agents/rust-expert.md) | Rust ownership, lifetimes, async, unsafe patterns |
-| [sql-expert](agents/sql-expert.md) | Complex SQL queries, optimization, indexing |
-| [typescript-expert](agents/typescript-expert.md) | TypeScript type system, generics, utility types, strict mode |
-| [vue-expert](agents/vue-expert.md) | Vue 3, Composition API, Pinia state management, performance |
 | [wrangler-expert](agents/wrangler-expert.md) | Cloudflare Workers deployment, wrangler.toml |
 
 ### Rules

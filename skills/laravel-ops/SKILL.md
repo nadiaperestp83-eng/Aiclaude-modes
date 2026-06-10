@@ -422,6 +422,7 @@ $this->assertSoftDeleted('posts', ['id' => $post->id]);
 - [Laravel 11 Documentation](https://laravel.com/docs/11.x)
 - [Pest PHP](https://pestphp.com/)
 - [Laravel Horizon](https://laravel.com/docs/11.x/horizon) - Queue monitoring
+- [Laravel Telescope](https://laravel.com/docs/11.x/telescope) - Local debugging and request/query monitoring
 - [Laravel Octane](https://laravel.com/docs/11.x/octane) - High-performance serving
 - [Laravel Forge](https://forge.laravel.com/) - Server management
 - [Laravel Vapor](https://vapor.laravel.com/) - Serverless deployment

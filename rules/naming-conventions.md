@@ -19,17 +19,16 @@ Consistent naming patterns for all claude-mods components.
 
 | Pattern | Example | Notes |
 |---------|---------|-------|
-| Language | `python-expert.md` | Programming languages |
-| Framework | `laravel-expert.md` | Frameworks |
-| Tool | `docker-expert.md` | Specific tools |
+| Framework | `craftcms-expert.md` | Frameworks/CMS |
+| Tool | `cypress-expert.md` | Specific tools |
 | Domain | `aws-fargate-ecs-expert.md` | Compound domains |
-| Specialized | `playwright-roulette-expert.md` | Project-specific |
+| Specialized | `asus-router-expert.md` | Niche/device-specific |
 
 **Frontmatter:**
 
 ```yaml
 ---
-name: python-expert          # Match filename (without .md)
+name: cypress-expert         # Match filename (without .md)
 description: <one line>      # Concise capability summary
 model: sonnet|opus|haiku     # Recommended model
 ---
@@ -181,13 +180,13 @@ depends_on: [bad]     # snake_case wrong
 ## Anti-patterns
 
 ```
-BAD:  Python-Expert.md       - PascalCase
-BAD:  python_expert.md       - snake_case
-BAD:  pythonExpert.md        - camelCase
-GOOD: python-expert.md       - kebab-case
+BAD:  Cypress-Expert.md      - PascalCase
+BAD:  cypress_expert.md      - snake_case
+BAD:  cypressExpert.md       - camelCase
+GOOD: cypress-expert.md      - kebab-case
 
 BAD:  skills/PythonPatterns/ - PascalCase directory
-GOOD: skills/python-ops/
+GOOD: skills/python-pytest-ops/
 
 BAD:  commands/TestGen.md    - PascalCase
 GOOD: commands/testgen.md    - Concatenated lowercase
@@ -200,7 +199,7 @@ GOOD: vesper.md              - lowercase
 
 | Component | Pattern | Example |
 |-----------|---------|---------|
-| Agent | `{domain}-expert.md` | `docker-expert.md` |
+| Agent | `{domain}-expert.md` | `cypress-expert.md` |
 | Skill | `{topic}-ops/SKILL.md` | `postgres-ops/SKILL.md` |
 | Command | `{action}.md` | `review.md` |
 | Rule | `{topic}.md` | `commit-style.md` |

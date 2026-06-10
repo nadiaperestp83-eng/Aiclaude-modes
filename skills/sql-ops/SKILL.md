@@ -79,6 +79,25 @@ SELECT * FROM products ORDER BY id LIMIT 20 OFFSET 40;
 SELECT * FROM products WHERE id > 42 ORDER BY id LIMIT 20;
 ```
 
+## Transaction Isolation Levels
+
+| Level | Dirty Read | Non-Repeatable Read | Phantom Read | Use |
+|-------|-----------|--------------------|--------------|-----|
+| `READ UNCOMMITTED` | Possible | Possible | Possible | Rarely (PostgreSQL treats as READ COMMITTED) |
+| `READ COMMITTED` | No | Possible | Possible | Default in most databases |
+| `REPEATABLE READ` | No | No | Possible* | Consistent multi-statement reads |
+| `SERIALIZABLE` | No | No | No | Critical invariants (retry on serialization failure) |
+
+*PostgreSQL's REPEATABLE READ also prevents phantoms via snapshot isolation.
+
+```sql
+BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+-- ... critical operations ...
+COMMIT;  -- be prepared to retry on serialization failure
+```
+
+Keep the default `READ COMMITTED` globally; raise the level per-transaction only where the logic requires it.
+
 ## Index Quick Reference
 
 | Index Type | Best For |

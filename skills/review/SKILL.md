@@ -9,7 +9,7 @@ metadata:
 
 # Review Skill - AI Code Review
 
-Perform comprehensive code reviews on staged changes, specific files, or pull requests. Routes to expert agents based on file types and automatically creates tasks for critical issues.
+Perform comprehensive code reviews on staged changes, specific files, or pull requests. Dispatches general-purpose reviewers that preload the relevant `-ops` skill based on file types and automatically creates tasks for critical issues.
 
 ## Architecture
 
@@ -34,17 +34,17 @@ review [target] [--focus] [--depth]
     │     ├─ Detect test framework
     │     └─ Check CI config for existing linting
     │
-    ├─→ Step 4: Route to Expert Reviewers
-    │     ├─ TypeScript → typescript-expert
-    │     ├─ React/JSX → react-expert
-    │     ├─ Python → python-expert
-    │     ├─ Go → go-expert
-    │     ├─ Rust → rust-expert
-    │     ├─ Vue → vue-expert
-    │     ├─ SQL/migrations → postgres-expert
+    ├─→ Step 4: Route to Reviewers (general-purpose + skill preload)
+    │     ├─ TypeScript → general-purpose, preload typescript-ops
+    │     ├─ React/JSX → general-purpose, preload react-ops
+    │     ├─ Python → general-purpose, preload python-pytest-ops
+    │     ├─ Go → general-purpose, preload go-ops
+    │     ├─ Rust → general-purpose, preload rust-ops
+    │     ├─ Vue → general-purpose, preload vue-ops
+    │     ├─ SQL/migrations → general-purpose, preload postgres-ops
     │     ├─ Claude extensions → claude-architect
-    │     ├─ Multi-domain → parallel expert dispatch
-    │     └─ All experts preload: security-ops + testing-ops context
+    │     ├─ Multi-domain → parallel general-purpose dispatch
+    │     └─ All reviewers preload: security-ops + testing-ops context
     │
     ├─→ Step 5: Generate Review
     │     ├─ Severity: CRITICAL / WARNING / SUGGESTION / PRAISE
@@ -141,34 +141,37 @@ cat package.json 2>/dev/null | jq '.devDependencies | keys | map(select(test("je
 cat .github/workflows/*.yml 2>/dev/null | grep -E "eslint|prettier|pylint|ruff" | head -10
 ```
 
-### Step 4: Route to Expert Reviewers
+### Step 4: Route to Reviewers
 
-| File Pattern | Primary Expert | Secondary Expert |
-|--------------|----------------|------------------|
-| `*.ts` | typescript-expert | - |
-| `*.tsx` | react-expert | typescript-expert |
-| `*.vue` | vue-expert | typescript-expert |
-| `*.py` | python-expert | sql-expert (if ORM) |
-| `*.go` | go-expert | - |
-| `*.rs` | rust-expert | - |
-| `*.sql`, `migrations/*` | postgres-expert | - |
+Dispatch is skills-first: domain knowledge lives in `-ops` skills, and the generic `general-purpose` subagent preloads the relevant SKILL.md before reviewing. Surviving specialist agents (cypress-expert, claude-architect, wrangler-expert, bash-expert) are still dispatched directly.
+
+| File Pattern | Dispatch | Preload |
+|--------------|----------|---------|
+| `*.ts` | general-purpose | `skills/typescript-ops/SKILL.md` |
+| `*.tsx` | general-purpose | `skills/react-ops/SKILL.md` + `skills/typescript-ops/SKILL.md` |
+| `*.vue` | general-purpose | `skills/vue-ops/SKILL.md` + `skills/typescript-ops/SKILL.md` |
+| `*.py` | general-purpose | `skills/python-pytest-ops/SKILL.md` (+ `skills/sql-ops/SKILL.md` if ORM) |
+| `*.go` | general-purpose | `skills/go-ops/SKILL.md` |
+| `*.rs` | general-purpose | `skills/rust-ops/SKILL.md` |
+| `*.sql`, `migrations/*` | general-purpose | `skills/postgres-ops/SKILL.md` |
 | `agents/*.md`, `skills/*`, `commands/*` | claude-architect | - |
-| `*.test.*`, `*.spec.*` | cypress-expert | (framework expert) |
-| `*.cy.ts`, `cypress/*` | cypress-expert | typescript-expert |
-| `*.spec.ts` (Playwright) | typescript-expert | - |
-| `playwright/*`, `e2e/*` | typescript-expert | - |
-| `wrangler.toml`, `workers/*` | wrangler-expert | cloudflare-expert |
+| `*.test.*`, `*.spec.*` | cypress-expert | (framework skill by file type) |
+| `*.cy.ts`, `cypress/*` | cypress-expert | `skills/typescript-ops/SKILL.md` |
+| `*.spec.ts` (Playwright) | general-purpose | `skills/typescript-ops/SKILL.md` |
+| `playwright/*`, `e2e/*` | general-purpose | `skills/typescript-ops/SKILL.md` |
+| `wrangler.toml`, `workers/*` | wrangler-expert (cloudflare-expert secondary) | - |
 | `*.sh`, `*.bash` | bash-expert | - |
 
 **Invoke via Task tool:**
 ```
-Task tool with subagent_type: "[detected]-expert"
+Task tool with subagent_type: "general-purpose" (or surviving specialist from table)
 model: "sonnet"
 Prompt includes:
   - Skill preloading (domain knowledge):
     "First, read these files for review context:
      - Read: skills/security-ops/references/owasp-detailed.md
-     - Read: skills/testing-ops/SKILL.md"
+     - Read: skills/testing-ops/SKILL.md
+     - Read: [Preload column for the matched file pattern]"
   - Diff content
   - Project conventions from AGENTS.md
   - Linting config summaries
@@ -178,16 +181,16 @@ Prompt includes:
 
 **Language-specific preloads** (append to the preloading section above):
 
-| Expert | Additional Preload | Why |
-|--------|-------------------|-----|
-| python-expert | `skills/python-pytest-ops/SKILL.md` | Python test patterns for coverage review |
-| go-expert | `skills/go-ops/SKILL.md` | Go idioms, concurrency gotchas |
-| rust-expert | `skills/rust-ops/SKILL.md` | Ownership patterns, unsafe review |
-| typescript-expert | `skills/typescript-ops/SKILL.md` | Type safety patterns |
+| Language | Additional Preload | Why |
+|----------|-------------------|-----|
+| Python | `skills/python-pytest-ops/SKILL.md` | Python test patterns for coverage review |
+| Go | `skills/go-ops/SKILL.md` | Go idioms, concurrency gotchas |
+| Rust | `skills/rust-ops/SKILL.md` | Ownership patterns, unsafe review |
+| TypeScript | `skills/typescript-ops/SKILL.md` | Type safety patterns |
 
 ### Step 5: Generate Review
 
-The expert produces a structured review:
+The reviewer produces a structured review:
 
 ```markdown
 # Code Review: [scope description]

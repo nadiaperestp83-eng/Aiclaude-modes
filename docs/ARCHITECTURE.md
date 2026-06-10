@@ -317,20 +317,20 @@ Agents are markdown files in `agents/` or `.claude/agents/`:
 
 ```yaml
 ---
-name: react-expert
-description: Expert in React hooks, state management, and performance
+name: cypress-expert
+description: Expert in Cypress E2E and component testing, custom commands, and CI integration
 model: sonnet
 ---
 
-# React Expert
+# Cypress Expert
 
-You are a React expert specializing in modern React patterns...
+You are a Cypress expert specializing in reliable end-to-end testing...
 
 ## Core Expertise
-- Hooks and custom hooks
-- State management (Context, Zustand, Jotai)
-- Performance optimization
-- Server Components
+- E2E and component test architecture
+- Custom commands and page objects
+- Network stubbing and fixtures
+- CI integration and flake reduction
 
 ## Patterns
 [Detailed patterns and examples...]
@@ -338,13 +338,13 @@ You are a React expert specializing in modern React patterns...
 
 ### Example Usage
 
-When Claude encounters a React-specific question, it can spawn the react-expert:
+When Claude encounters a Cypress-specific question, it can spawn the cypress-expert:
 
 ```
-User: "How should I optimize this component that re-renders too often?"
+User: "Why do these E2E tests pass locally but flake in CI?"
 
-Claude: I'll consult the react-expert agent for specialized guidance.
-[Uses Task tool with subagent_type="react-expert"]
+Claude: I'll consult the cypress-expert agent for specialized guidance.
+[Uses Task tool with subagent_type="cypress-expert"]
 ```
 
 ### References

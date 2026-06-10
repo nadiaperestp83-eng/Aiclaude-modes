@@ -66,13 +66,16 @@ Is this a reference/lookup task?
 
 | Agent | Triggers |
 |-------|----------|
-| **python-expert** | Python, async, pytest |
-| **typescript-expert** | TypeScript, types, generics |
-| **react-expert** | React, hooks, state |
-| **postgres-expert** | PostgreSQL, query optimization |
 | **cloudflare-expert** | Workers, KV, D1, R2 |
+| **wrangler-expert** | wrangler.toml, Workers deployment |
+| **cypress-expert** | Cypress E2E, component testing |
+| **firecrawl-expert** | web scraping, crawling, anti-bot |
+| **claude-architect** | Claude Code extensions, MCP, plugins |
+| **bash-expert** | shell scripting, CI/CD scripts |
 | **Explore** | "where is", "find" |
 | **Plan** | design, architect |
+
+For language/framework work (Python, TypeScript, React, Postgres, etc.), use the matching `-ops` skill — or dispatch `general-purpose` with an instruction to read that skill's SKILL.md first.
 
 ## How to Launch
 
@@ -83,7 +86,7 @@ Skill tool → skill: "file-search"
 
 **Agents:**
 ```
-Task tool → subagent_type: "python-expert"
+Task tool → subagent_type: "cloudflare-expert"
          → prompt: "Your task"
 ```
 
@@ -91,17 +94,18 @@ Task tool → subagent_type: "python-expert"
 
 | Task | Skill First | Agent If Needed |
 |------|-------------|-----------------|
-| "How to write a CTE?" | sql-ops | sql-expert |
-| "Optimize this query" | — | postgres-expert |
+| "How to write a CTE?" | sql-ops | — |
+| "Optimize this query" | postgres-ops | — |
 | "Find files named X" | file-search | Explore |
-| "Set up Python project" | python-env | python-expert |
+| "Set up Python project" | python-env | — |
 | "What HTTP status for X?" | rest-ops | — |
-| "React Server Components?" | react-ops | react-expert |
-| "Vue 3 composable pattern" | vue-ops | vue-expert |
+| "React Server Components?" | react-ops | — |
+| "Vue 3 composable pattern" | vue-ops | — |
 | "Configure nginx SSL" | nginx-ops | — |
 | "JWT vs session auth" | auth-ops | — |
 | "Set up Prometheus" | monitoring-ops | — |
 | "Debug memory leak" | debug-ops | — |
+| "Scrape a blocked site" | jina-ops | firecrawl-expert |
 
 ## Tips
 

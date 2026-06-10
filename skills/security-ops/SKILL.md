@@ -38,8 +38,8 @@ User requests security audit or mentions security concern
     |       |
     |       +---> Consolidate: deduplicate, rank by severity, map to OWASP Top 10
     |
-    +---> T3: Remediate (dispatch to language expert, foreground + confirm)
-            +---> Expert proposes specific fixes
+    +---> T3: Remediate (dispatch general-purpose + skill preload, foreground + confirm)
+            +---> Agent proposes specific fixes
             +---> Preflight: what changes, security impact, risk of breaking
             +---> User confirms
             +---> Apply fixes
@@ -56,9 +56,9 @@ User requests security audit or mentions security concern
 | Code pattern scan (SAST) | T2 | Agent 2 (bg) |
 | Auth & config review | T2 | Agent 3 (bg) |
 | Consolidate findings | T2 | Inline (after agents return) |
-| Fix vulnerability in code | T3 | Expert agent + confirm |
-| Update vulnerable dependency | T3 | Expert agent + confirm |
-| Add security headers | T3 | Expert agent + confirm |
+| Fix vulnerability in code | T3 | Skill-preloaded agent + confirm |
+| Update vulnerable dependency | T3 | Skill-preloaded agent + confirm |
+| Add security headers | T3 | Skill-preloaded agent + confirm |
 
 ## T1: Detect - Run Inline
 
@@ -233,21 +233,21 @@ After all 3 agents return, consolidate inline:
 3. **Map to OWASP Top 10** - Tag each finding with its OWASP category
 4. **Generate report** (see Report Format below)
 
-## T3: Remediate - Expert Dispatch with Confirmation
+## T3: Remediate - Skill-Preloaded Dispatch with Confirmation
 
-When user wants to fix findings, dispatch to the appropriate language expert.
+When user wants to fix findings, dispatch a `general-purpose` agent preloaded with the relevant language `-ops` skill.
 
 **Language routing (same as perf-ops):**
 
-| Finding Type | Expert Agent |
-|-------------|-------------|
-| Python vulnerability | python-expert |
-| Node.js/JS vulnerability | javascript-expert |
-| TypeScript vulnerability | typescript-expert |
-| Go vulnerability | go-expert |
-| Rust vulnerability | rust-expert |
-| SQL injection / DB security | postgres-expert |
-| General / config / headers | general-purpose |
+| Finding Type | Dispatch | Preload |
+|-------------|----------|---------|
+| Python vulnerability | general-purpose | relevant `skills/python-*/SKILL.md` by topic |
+| Node.js/JS vulnerability | general-purpose | `skills/javascript-ops/SKILL.md` |
+| TypeScript vulnerability | general-purpose | `skills/typescript-ops/SKILL.md` |
+| Go vulnerability | general-purpose | `skills/go-ops/SKILL.md` |
+| Rust vulnerability | general-purpose | `skills/rust-ops/SKILL.md` |
+| SQL injection / DB security | general-purpose | `skills/postgres-ops/SKILL.md` |
+| General / config / headers | general-purpose | - |
 
 **Dispatch template (T3 preflight):**
 
@@ -257,6 +257,7 @@ You are handling a security remediation dispatched by the security-ops orchestra
 ## Domain Knowledge
 First, read for context:
 - Read: skills/security-ops/references/owasp-detailed.md
+- Read: [Preload column for the finding's language]
 
 ## Finding to Fix
 {specific finding from audit report}
@@ -323,8 +324,8 @@ If agent dispatch fails, fall back to inline scanning:
 | Code pattern scan | T2 | Agent 2 (bg) |
 | Auth & config review | T2 | Agent 3 (bg) |
 | Consolidate report | T2 | Inline |
-| Fix vulnerability | T3 | Expert + confirm |
-| Update dependency | T3 | Expert + confirm |
+| Fix vulnerability | T3 | Skill-preloaded agent + confirm |
+| Update dependency | T3 | Skill-preloaded agent + confirm |
 
 ## Reference Files
 

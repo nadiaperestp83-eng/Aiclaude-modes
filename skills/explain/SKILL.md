@@ -1,6 +1,6 @@
 ---
 name: explain
-description: "Deep explanation of complex code, files, or concepts. Routes to expert agents, uses structural search, generates mermaid diagrams. Triggers on: explain, deep dive, how does X work, architecture, data flow."
+description: "Deep explanation of complex code, files, or concepts. Dispatches skill-preloaded agents, uses structural search, generates mermaid diagrams. Triggers on: explain, deep dive, how does X work, architecture, data flow."
 license: MIT
 compatibility: "Uses ast-grep, tokei, rg, fd if available. Falls back to standard tools."
 allowed-tools: "Read Glob Grep Bash Task"
@@ -11,7 +11,7 @@ metadata:
 
 # Explain - Deep Code Explanation
 
-Get a comprehensive explanation of code, files, directories, or architectural concepts. Automatically routes to the most relevant expert agent and uses modern CLI tools for analysis.
+Get a comprehensive explanation of code, files, directories, or architectural concepts. Automatically dispatches a general-purpose agent preloaded with the most relevant `-ops` skill and uses modern CLI tools for analysis.
 
 ## Arguments
 
@@ -38,14 +38,14 @@ $ARGUMENTS
     |     +- Find related: tests, types, docs
     |     +- Load: AGENTS.md, CLAUDE.md conventions
     |
-    +-> Step 3: Route to Expert Agent
-    |     +- .ts/.tsx -> typescript-expert or react-expert
-    |     +- .py -> python-expert
-    |     +- .vue -> vue-expert
-    |     +- .sql/migrations -> postgres-expert
+    +-> Step 3: Route to Explainer (general-purpose + skill preload)
+    |     +- .ts/.tsx -> general-purpose, preload typescript-ops or react-ops
+    |     +- .py -> general-purpose, preload python-* skill by topic
+    |     +- .vue -> general-purpose, preload vue-ops
+    |     +- .sql/migrations -> general-purpose, preload postgres-ops
     |     +- agents/skills/commands -> claude-architect
     |     +- Default -> general-purpose
-    |     +- All experts preload: debug-ops (systematic analysis)
+    |     +- All explainers preload: debug-ops (systematic analysis)
     |
     +-> Step 4: Generate Explanation
     |     +- Structured markdown with sections
@@ -115,30 +115,31 @@ fd -e d.ts -e types.ts | xargs rg -l "$TARGET" 2>/dev/null
 - Read CLAUDE.md if exists
 - Check for framework-specific patterns
 
-### Step 3: Route to Expert Agent
+### Step 3: Route to Explainer
 
-Determine the best expert based on file extension and content:
+Dispatch is skills-first: the generic `general-purpose` subagent preloads the relevant `-ops` skill based on file extension and content:
 
-| Pattern | Primary Agent | Condition |
-|---------|---------------|-----------|
-| `.ts` | typescript-expert | No JSX/React imports |
-| `.tsx` | react-expert | JSX present |
-| `.js`, `.jsx` | javascript-expert | - |
-| `.py` | python-expert | - |
-| `.vue` | vue-expert | - |
-| `.sql`, `migrations/*` | postgres-expert | - |
-| `agents/*.md`, `skills/*`, `commands/*` | claude-architect | Claude extensions |
-| `*.test.*`, `*.spec.*` | (framework expert) | Route by file type |
-| Other | general-purpose | Fallback |
+| Pattern | Dispatch | Preload | Condition |
+|---------|----------|---------|-----------|
+| `.ts` | general-purpose | `skills/typescript-ops/SKILL.md` | No JSX/React imports |
+| `.tsx` | general-purpose | `skills/react-ops/SKILL.md` | JSX present |
+| `.js`, `.jsx` | general-purpose | `skills/javascript-ops/SKILL.md` | - |
+| `.py` | general-purpose | relevant `skills/python-*/SKILL.md` by topic | - |
+| `.vue` | general-purpose | `skills/vue-ops/SKILL.md` | - |
+| `.sql`, `migrations/*` | general-purpose | `skills/postgres-ops/SKILL.md` | - |
+| `agents/*.md`, `skills/*`, `commands/*` | claude-architect | - | Claude extensions |
+| `*.test.*`, `*.spec.*` | general-purpose | (framework skill by file type) | - |
+| Other | general-purpose | - | Fallback |
 
 **Invoke via Task tool:**
 ```
-Task tool with subagent_type: "[detected]-expert"
+Task tool with subagent_type: "general-purpose" (or claude-architect for Claude extensions)
 model: "sonnet"
 Prompt includes:
   - Skill preloading (domain knowledge):
-    "First, read this file for systematic analysis methodology:
-     - Read: skills/debug-ops/SKILL.md"
+    "First, read these files for analysis context:
+     - Read: skills/debug-ops/SKILL.md
+     - Read: [Preload column for the matched pattern]"
   - File content
   - Related files found
   - Project conventions
@@ -147,7 +148,7 @@ Prompt includes:
 
 ### Step 4: Generate Explanation
 
-The expert agent produces a structured explanation:
+The dispatched agent produces a structured explanation:
 
 ```markdown
 # Explanation: [target]
@@ -337,4 +338,4 @@ This keeps valuable architectural knowledge in git-tracked documentation.
 - Complex systems may need multiple `/explain` calls
 - Use `--deep` for unfamiliar codebases
 - Mermaid diagrams render in GitHub, GitLab, VSCode, and most markdown viewers
-- Expert agents provide framework-specific insights
+- Preloaded `-ops` skills provide framework-specific insights

@@ -7,6 +7,17 @@ feature releases live in the README "Recent Updates" section.
 
 ## [Unreleased]
 
+### Removed
+- **11 language/framework expert agents** deprecated in favour of their `-ops`
+  skill twins (python, typescript, javascript, go, rust, react, vue, astro,
+  laravel, sql, postgres) - unique agent content folded into the skills;
+  dispatching skills (review, testgen, explain, perf-ops, security-ops) now
+  route `general-purpose` agents with skill preloading. 23 → 12 agents.
+
+### Added
+- CI: doc-drift gate (`tests/doc-drift.sh`) - docs must match disk
+- CI: skill behavioural test suites (`tests/run-skill-tests.sh`)
+
 ### Changed
 - README/AGENTS.md/PLAN.md reconciled with actual inventory (80 skills, 9 hooks,
   7 rules); ghost references removed (`rules/thinking.md`, `docs/DASH.md`)

@@ -14,6 +14,20 @@ metadata:
 
 Asyncio patterns for concurrent Python programming.
 
+## When to Use Async vs Sync
+
+| Use Async When | Use Sync When |
+|----------------|---------------|
+| I/O-bound operations (HTTP, DB, files) | CPU-bound computations |
+| High concurrency (100s+ connections) | Simple scripts, one-off tasks |
+| WebSocket/streaming connections | Small data processing |
+| Microservices with network calls | Single sequential operations |
+
+**Decision tree:**
+1. Is it CPU-bound? → Sync (or multiprocessing)
+2. Is it I/O-bound with high concurrency? → Async
+3. Is it simple I/O with few connections? → Sync is fine
+
 ## Core Concepts
 
 ```python

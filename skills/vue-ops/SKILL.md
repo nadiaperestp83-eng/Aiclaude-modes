@@ -401,6 +401,28 @@ What rendering strategy does my app need?
 
 ---
 
+## Rendering Performance Quick Wins
+
+| Technique | When to Use |
+|-----------|-------------|
+| `v-memo="[dep1, dep2]"` | Skip re-rendering a subtree (usually a `v-for` row) unless listed deps changed — only for measured hot lists |
+| `<KeepAlive>` | Cache component instances across tab/route switches; pair with `onActivated`/`onDeactivated` for refresh logic |
+| Virtual scrolling | Lists with hundreds+ of rows — `vue-virtual-scroller` or `@tanstack/vue-virtual` render only visible items |
+| `shallowRef` / `markRaw` | Large objects or third-party instances that don't need deep reactivity (see Reactivity Decision Tree) |
+
+```vue
+<!-- v-memo: row re-renders only when item.id or selection state changes -->
+<div
+  v-for="item in list"
+  :key="item.id"
+  v-memo="[item.id, item.id === selectedId]"
+>
+  {{ item.name }} — {{ item.id === selectedId ? 'selected' : '' }}
+</div>
+```
+
+**Tip:** before writing a composable, check [VueUse](https://vueuse.org/) — 200+ battle-tested composables (`useLocalStorage`, `useIntersectionObserver`, `useDark`, ...) that handle SSR and cleanup edge cases.
+
 ## Common Gotchas
 
 | Gotcha | Why | Fix |

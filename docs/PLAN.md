@@ -15,7 +15,7 @@
 
 | Component | Count | Notes |
 |-----------|-------|-------|
-| Agents | 23 | Domain experts + git-agent background worker (cull in progress — see below) |
+| Agents | 12 | Domain experts without skill twins + git-agent background worker |
 | Skills | 80 | Operational skills, CLI tools, workflows, diagnostics, security |
 | Commands | 2 | Session management (sync, save) |
 | Rules | 7 | cli-tools, commit-style, naming-conventions, prompt-injection, skill-agent-updates, supply-chain, worktree-boundaries |
@@ -39,10 +39,10 @@ Counts are enforced by the CI doc-drift gate (see roadmap) — if this table rot
 
 ### Phase 2 — Skills-first restructure (v3.0)
 
-- [ ] **Agent cull**: deprecate language/framework experts with `-ops` skill twins
-      (python, typescript, javascript, go, rust, react, vue, astro, laravel).
-      Fold unique agent content into the twin skill first. Keep: git-agent,
-      claude-architect, firecrawl-expert, niche experts without skill twins.
+- [x] **Agent cull**: deprecated 11 experts with `-ops` skill twins (python,
+      typescript, javascript, go, rust, react, vue, astro, laravel, sql,
+      postgres). Unique content folded into twin skills; dispatching skills
+      now route general-purpose agents with skill preloading. 23 → 12 agents.
 - [ ] **claude-code-internals**: merge + refresh claude-code-debug /
       claude-code-headless / claude-code-hooks against current official docs
       (new hook events, skill frontmatter fields, CLI flags).

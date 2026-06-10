@@ -177,6 +177,19 @@ const { Content, headings } = await post.render();
 <Content />
 ```
 
+### Content Collections vs External CMS
+
+| Criterion | Content Collections | External CMS (Payload, etc.) |
+|-----------|--------------------|-----------------------------|
+| Content type | Local markdown/MDX, docs, blogs | Relational data models |
+| Authors | Developers (version-controlled) | Editors (admin UI, multi-user auth) |
+| Validation | Type-safe via Zod at build time | CMS-side schemas + API contracts |
+| Update cadence | Deploys with the site | Independent of deployments |
+| API needs | None (build-time queries) | REST/GraphQL for other consumers |
+| Workflow | Git PRs, simple review | Editorial workflows, drafts, roles |
+
+Rule of thumb: start with Content Collections; reach for a CMS only when non-developers need to publish without a deploy, or when content is genuinely relational.
+
 ## Project Structure Reference
 
 ```
@@ -370,6 +383,17 @@ npx astro add node
 | Styles leaking between components | Using global CSS instead of scoped styles | Use `<style>` (scoped by default in .astro) or `<style is:global>` intentionally |
 | View Transitions break scripts | `DOMContentLoaded` only fires once with View Transitions | Use `astro:page-load` event instead, which fires on every navigation |
 | Env vars missing in production | `.env` not loaded or platform env vars not configured | Use `envField` in astro.config.mjs for validation; set vars in platform dashboard |
+
+## Production Security Checklist
+
+For every production deployment, address:
+
+- **CSP headers** - configure a restrictive `Content-Security-Policy` (see middleware patterns in `references/deployment.md`)
+- **Remote image restrictions** - enforce explicit `image.domains` / `remotePatterns` allow-lists; never derive image URLs from user input (SSRF risk)
+- **Host header validation** - verify the request host matches expected domains in middleware (SSR/hybrid only)
+- **Secrets management** - on Cloudflare, use Workers Bindings (`wrangler secret put`), not env vars baked into code; elsewhere use platform secret stores
+- **HTTPS only** - ensure all external resources (scripts, images, fonts) load over HTTPS
+- **Input validation** - sanitize all user input in SSR contexts (query params, form bodies, cookies)
 
 ## Reference Files
 

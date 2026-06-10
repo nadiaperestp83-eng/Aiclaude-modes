@@ -2,6 +2,39 @@
 
 Enforce type hints at runtime with Pydantic, typeguard, and beartype.
 
+## Choosing a Model Library
+
+| Library | Use When |
+|---------|----------|
+| **dataclasses** | Simple data containers, internal models, no validation needed |
+| **Pydantic** | API boundaries, user input, config, JSON serialization |
+| **attrs** | Performance-critical, many instances, custom validators |
+
+```python
+# dataclasses - standard library, simple
+from dataclasses import dataclass
+
+@dataclass
+class Point:
+    x: float
+    y: float
+
+# Pydantic - validation + serialization
+from pydantic import BaseModel, Field
+
+class User(BaseModel):
+    name: str = Field(min_length=1)
+    email: EmailStr
+
+# attrs - fast, flexible
+import attrs
+
+@attrs.define
+class Record:
+    id: int
+    data: str = attrs.field(validator=attrs.validators.min_len(1))
+```
+
 ## Pydantic v2 Validation
 
 ```python

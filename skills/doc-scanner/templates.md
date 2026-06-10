@@ -13,8 +13,8 @@ Brief description of the project and what it does.
 
 | Task | Agent | Example Prompt |
 |------|-------|----------------|
-| Code review | `javascript-expert` | "Review this PR for issues" |
-| Database work | `sql-expert` | "Optimize this query" |
+| E2E testing | `cypress-expert` | "Stabilize these flaky tests" |
+| Web scraping | `firecrawl-expert` | "Extract structured data from this site" |
 | Deployment | `bash-expert` | "Deploy to staging" |
 
 ## Primary Agents

@@ -267,6 +267,14 @@ full = ["json", "yaml", "toml"]
 serde_json = { version = "1", optional = true }
 ```
 
+### Release Profile Tuning
+
+```toml
+[profile.release]
+lto = true            # Link-time optimization: smaller, faster binaries
+codegen-units = 1     # Better optimization at the cost of compile time
+```
+
 ## Common Gotchas
 
 | Gotcha | Why | Fix |

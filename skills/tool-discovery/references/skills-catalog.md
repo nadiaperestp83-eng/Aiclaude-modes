@@ -658,4 +658,4 @@ Project and development workflow automation.
 
 **Example:**
 - "What's the HTTP status for unauthorized?" → rest-ops (skill)
-- "Design authentication for my API" → python-expert or relevant framework agent
+- "Design authentication for my API" → general-purpose agent preloading auth-ops + the relevant framework `-ops` skill

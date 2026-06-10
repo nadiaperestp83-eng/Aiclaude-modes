@@ -15,7 +15,7 @@ Generate world-class, comprehensive expert agent prompts for Claude Code. Each a
 
 **Target quality:** 500-1000 lines per agent with real code examples, complete configs, and detailed patterns.
 
-**Benchmark agents:** `python-expert.md` (1600 lines), `claude-architect.md` (1242 lines), `react-expert.md` (440 lines)
+**Benchmark agents:** `firecrawl-expert.md` (1026 lines), `claude-architect.md` (347 lines)
 
 ## Usage Modes
 
@@ -139,7 +139,7 @@ Every generated agent MUST follow this comprehensive 10-part structure:
 
 Plus: Quality Checklist, Anti-Patterns (5-10 with bad/good code), Canonical Resources (10-15 URLs)
 
-See `python-expert.md` and `react-expert.md` in agents/ for reference implementations.
+See `firecrawl-expert.md` and `claude-architect.md` in agents/ for reference implementations.
 
 **Requirements:**
 - YAML frontmatter at top with required fields (name, description)
@@ -228,7 +228,7 @@ Agent: Describe your architecture or provide file path:
 User: E-commerce platform: Next.js frontend, Node.js API, PostgreSQL, Redis cache, Stripe payments, AWS S3 storage, SendGrid emails
 Agent: Found platforms: Next.js, Node.js, PostgreSQL, Redis, Stripe, AWS S3, SendGrid
 [Shows multi-select AskUserQuestion]
-User: [Selects: nextjs-expert, postgres-expert, redis-expert, stripe-expert]
+User: [Selects: nextjs-expert, redis-expert, stripe-expert, sendgrid-expert]
 Agent: [Generates 4 selected agents in ~/.claude/agents/]
 ```
 

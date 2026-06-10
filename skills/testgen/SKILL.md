@@ -1,6 +1,6 @@
 ---
 name: testgen
-description: "Generate tests with expert routing, framework detection, and auto-TaskCreate. Triggers on: generate tests, write tests, testgen, create test file, add test coverage."
+description: "Generate tests with skill-preloaded routing, framework detection, and auto-TaskCreate. Triggers on: generate tests, write tests, testgen, create test file, add test coverage."
 license: MIT
 allowed-tools: "Read Write Edit Bash Glob Grep Task TaskCreate"
 metadata:
@@ -9,7 +9,7 @@ metadata:
 
 # TestGen Skill - AI Test Generation
 
-Generate comprehensive tests with automatic framework detection, expert agent routing, and project convention matching.
+Generate comprehensive tests with automatic framework detection, skill-preloaded general-purpose dispatch, and project convention matching.
 
 ## Architecture
 
@@ -35,18 +35,18 @@ testgen <target> [--type] [--focus] [--depth]
     │     ├─ Existing test file structure
     │     └─ Naming conventions (*.test.ts vs *.spec.ts)
     │
-    ├─→ Step 4: Route to Expert Agent
-    │     ├─ .ts → typescript-expert
-    │     ├─ .tsx/.jsx → react-expert
-    │     ├─ .vue → vue-expert
-    │     ├─ .py → python-expert
-    │     ├─ .go → go-expert
-    │     ├─ .rs → rust-expert
-    │     ├─ .php → laravel-expert
+    ├─→ Step 4: Route to Test Generator (general-purpose + skill preload)
+    │     ├─ .ts → general-purpose, preload typescript-ops
+    │     ├─ .tsx/.jsx → general-purpose, preload react-ops
+    │     ├─ .vue → general-purpose, preload vue-ops
+    │     ├─ .py → general-purpose, preload python-pytest-ops
+    │     ├─ .go → general-purpose, preload go-ops
+    │     ├─ .rs → general-purpose, preload rust-ops
+    │     ├─ .php → general-purpose, preload laravel-ops
     │     ├─ E2E/Cypress → cypress-expert
-    │     ├─ Playwright → typescript-expert
+    │     ├─ Playwright → general-purpose, preload typescript-ops
     │     ├─ --visual → Chrome DevTools MCP
-    │     └─ Multi-file → parallel expert dispatch
+    │     └─ Multi-file → parallel general-purpose dispatch
     │
     ├─→ Step 5: Generate Tests
     │     ├─ Create test file in correct location
@@ -136,32 +136,35 @@ src/auth.rs → src/auth.rs (mod tests { ... })            # inline tests
             → tests/auth_test.rs                          # integration tests
 ```
 
-### Step 4: Route to Expert Agent
+### Step 4: Route to Test Generator
 
-| File Pattern | Primary Expert | Secondary |
-|--------------|----------------|-----------|
-| `*.ts` | typescript-expert | - |
-| `*.tsx`, `*.jsx` | react-expert | typescript-expert |
-| `*.vue` | vue-expert | typescript-expert |
-| `*.py` | python-expert | - |
-| `*.go` | go-expert | - |
-| `*.rs` | rust-expert | - |
-| `*.php` | laravel-expert | - |
+Dispatch is skills-first: the generic `general-purpose` subagent preloads the relevant `-ops` skill before generating tests. Surviving specialist agents (cypress-expert, bash-expert) are still dispatched directly.
+
+| File Pattern | Dispatch | Preload |
+|--------------|----------|---------|
+| `*.ts` | general-purpose | `skills/typescript-ops/SKILL.md` |
+| `*.tsx`, `*.jsx` | general-purpose | `skills/react-ops/SKILL.md` + `skills/typescript-ops/SKILL.md` |
+| `*.vue` | general-purpose | `skills/vue-ops/SKILL.md` + `skills/typescript-ops/SKILL.md` |
+| `*.py` | general-purpose | `skills/python-pytest-ops/SKILL.md` |
+| `*.go` | general-purpose | `skills/go-ops/SKILL.md` |
+| `*.rs` | general-purpose | `skills/rust-ops/SKILL.md` |
+| `*.php` | general-purpose | `skills/laravel-ops/SKILL.md` |
 | `*.cy.ts`, `cypress/*` | cypress-expert | - |
-| `*.spec.ts` (Playwright) | typescript-expert | - |
-| `playwright/*`, `e2e/*` | typescript-expert | - |
+| `*.spec.ts` (Playwright) | general-purpose | `skills/typescript-ops/SKILL.md` |
+| `playwright/*`, `e2e/*` | general-purpose | `skills/typescript-ops/SKILL.md` |
 | `*.sh`, `*.bash` | bash-expert | - |
-| (--visual flag) | Chrome DevTools MCP | typescript-expert |
+| (--visual flag) | Chrome DevTools MCP | `skills/typescript-ops/SKILL.md` |
 
 **Invoke via Task tool:**
 ```
-Task tool with subagent_type: "[detected]-expert"
+Task tool with subagent_type: "general-purpose" (or surviving specialist from table)
 model: "sonnet"
 Prompt includes:
   - Skill preloading (domain knowledge):
     "First, read these files for testing context:
      - Read: skills/security-ops/references/owasp-detailed.md
-     - Read: skills/testing-ops/SKILL.md"
+     - Read: skills/testing-ops/SKILL.md
+     - Read: [Preload column for the matched file pattern]"
   - Source file content
   - Function signatures to test
   - Detected framework and conventions
@@ -170,11 +173,11 @@ Prompt includes:
 
 **Language-specific preloads** (append to the preloading section above):
 
-| Expert | Additional Preload | Why |
-|--------|-------------------|-----|
-| python-expert | `skills/python-pytest-ops/SKILL.md` | Fixtures, marks, parametrize, async testing |
-| go-expert | `skills/go-ops/SKILL.md` | Table-driven tests, benchmarks, testify |
-| rust-expert | `skills/rust-ops/SKILL.md` | Property testing, criterion, proptest |
+| Language | Additional Preload | Why |
+|----------|-------------------|-----|
+| Python | `skills/python-pytest-ops/SKILL.md` | Fixtures, marks, parametrize, async testing |
+| Go | `skills/go-ops/SKILL.md` | Table-driven tests, benchmarks, testify |
+| Rust | `skills/rust-ops/SKILL.md` | Property testing, criterion, proptest |
 
 ### Step 5: Generate Tests
 
@@ -217,45 +220,45 @@ Next steps:
 
 ---
 
-## Expert Routing Details
+## Routing Details
 
-### TypeScript/JavaScript → typescript-expert
+### TypeScript/JavaScript (preload typescript-ops)
 - Proper type imports
 - Generic type handling
 - Async/await patterns
 - Mock typing
 
-### React/JSX → react-expert
+### React/JSX (preload react-ops)
 - React Testing Library patterns
 - Component rendering tests
 - Hook testing (renderHook)
 - Accessibility queries (getByRole)
 
-### Vue → vue-expert
+### Vue (preload vue-ops)
 - Vue Test Utils patterns
 - Composition API testing
 - Pinia store mocking
 
-### Python → python-expert
+### Python (preload python-pytest-ops)
 - pytest fixtures
 - Parametrized tests
 - Mock/patch patterns
 - Async test handling
 
-### Go → go-expert
+### Go (preload go-ops)
 - Table-driven tests (`[]struct` pattern)
 - `testing.T` and subtests (`t.Run`)
 - Testify assertions (when detected)
 - Benchmark functions (`testing.B`)
 - Parallel tests (`t.Parallel()`)
 
-### Rust → rust-expert
+### Rust (preload rust-ops)
 - `#[test]` attribute functions
 - `#[cfg(test)]` module organization
 - `#[should_panic]` for error testing
 - proptest/quickcheck for property testing
 
-### PHP/Laravel → laravel-expert
+### PHP/Laravel (preload laravel-ops)
 - PHPUnit/Pest patterns
 - Database transactions
 - Factory usage
@@ -265,7 +268,7 @@ Next steps:
 - Custom commands
 - Network stubbing
 
-### Playwright → typescript-expert
+### Playwright (preload typescript-ops)
 - Page object model patterns
 - Locator strategies
 - Visual regression testing

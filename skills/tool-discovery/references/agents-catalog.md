@@ -2,64 +2,9 @@
 
 Complete reference for all available agents in the Task tool.
 
+**Note:** Language and framework domains (Python, JavaScript, TypeScript, Go, Rust, React, Vue, Laravel, Astro, SQL, PostgreSQL) are covered by `-ops` skills, not agents — see `skills-catalog.md`. When subagent work is needed in those domains, dispatch `general-purpose` with an instruction to first read the relevant skill's SKILL.md and references (skill preloading).
+
 ## Language Experts
-
-### python-expert
-
-**Triggers:** python, py, pythonic, PEP, async, pytest, django, flask
-
-**Capabilities:**
-- Advanced Python features (decorators, metaclasses, descriptors)
-- Async programming (asyncio, aiohttp, async generators)
-- Testing strategies (pytest, mocking, fixtures)
-- Performance optimization and profiling
-- Clean, idiomatic Python code
-
-**Best For:**
-- Complex Python architecture decisions
-- Performance optimization
-- Testing strategy design
-- Debugging difficult Python issues
-
----
-
-### javascript-expert
-
-**Triggers:** javascript, js, node, es6, esm, commonjs, npm
-
-**Capabilities:**
-- Modern JavaScript (ES2015+)
-- Async patterns (Promises, async/await)
-- Module systems (ESM, CommonJS)
-- Event loop and concurrency
-- V8 optimization patterns
-
-**Best For:**
-- JavaScript modernization
-- Async code architecture
-- Performance optimization
-- Node.js development
-
----
-
-### typescript-expert
-
-**Triggers:** typescript, ts, types, generics, interface, type guard
-
-**Capabilities:**
-- Advanced type system (generics, conditional types)
-- Utility types and type manipulation
-- Declaration files (.d.ts)
-- Strict mode and type safety
-- Type-level programming
-
-**Best For:**
-- Complex type definitions
-- Type-safe API design
-- Generic library development
-- Migration from JavaScript
-
----
 
 ### bash-expert
 
@@ -80,161 +25,7 @@ Complete reference for all available agents in the Task tool.
 
 ---
 
-### go-expert
-
-**Triggers:** golang, go, goroutine, concurrency, channel, context
-
-**Capabilities:**
-- Go idioms and patterns
-- Concurrency (goroutines, channels, errgroup)
-- Error handling and wrapping
-- Testing (table-driven, benchmarks, fuzz)
-- Performance profiling (pprof, trace)
-
-**Best For:**
-- Go architecture decisions
-- Concurrency design
-- Performance optimization
-- Complex error handling
-
----
-
-### rust-expert
-
-**Triggers:** rust, cargo, ownership, borrow checker, lifetime, tokio
-
-**Capabilities:**
-- Ownership, borrowing, lifetimes
-- Traits, generics, type system
-- Async with tokio
-- Error handling (thiserror, anyhow)
-- Testing and ecosystem
-
-**Best For:**
-- Fighting the borrow checker
-- Async Rust architecture
-- Trait design
-- Unsafe code review
-
----
-
-## Framework Experts
-
-### react-expert
-
-**Triggers:** react, hooks, useState, useEffect, jsx, tsx
-
-**Capabilities:**
-- React hooks (built-in and custom)
-- State management patterns
-- Server Components and RSC
-- Performance optimization
-- Component architecture
-
-**Best For:**
-- React application architecture
-- Performance bottlenecks
-- State management design
-- Migration to modern React
-
----
-
-### vue-expert
-
-**Triggers:** vue, vuejs, composition api, pinia, vue router
-
-**Capabilities:**
-- Vue 3 Composition API
-- Pinia state management
-- Vue Router patterns
-- Reactivity system internals
-- Component design
-
-**Best For:**
-- Vue 3 migration
-- State management setup
-- Complex component patterns
-- SSR with Nuxt
-
----
-
-### laravel-expert
-
-**Triggers:** laravel, eloquent, php, artisan
-
-**Capabilities:**
-- Laravel framework patterns
-- Eloquent ORM
-- Testing with PHPUnit
-- Queue and job handling
-- API development
-
-**Best For:**
-- Laravel application design
-- Database optimization
-- Testing strategy
-- API architecture
-
----
-
-### astro-expert
-
-**Triggers:** astro, islands, content collections, cloudflare workers
-
-**Capabilities:**
-- Astro architecture (SSR/SSG/hybrid)
-- Islands architecture
-- Content Collections
-- Cloudflare Workers deployment
-- Performance optimization
-
-**Best For:**
-- Astro project setup
-- Deployment to Cloudflare
-- Content management
-- Performance tuning
-
----
-
 ## Infrastructure Experts
-
-### postgres-expert
-
-**Triggers:** postgres, postgresql, pg, sql optimization
-
-**Capabilities:**
-- Query optimization
-- Index strategies
-- Execution plan analysis
-- Connection pooling
-- Replication setup
-
-**Best For:**
-- Slow query optimization
-- Index design
-- Database architecture
-- Performance tuning
-
----
-
-### sql-expert
-
-**Triggers:** sql, query, database, join, subquery
-
-**Capabilities:**
-- Complex query writing
-- Query optimization
-- Index strategies
-- Data modeling
-- Cross-database patterns
-
-**Best For:**
-- Complex query construction
-- Query debugging
-- Data modeling
-- Performance analysis
-
----
 
 ### cloudflare-expert
 
@@ -371,22 +162,53 @@ Complete reference for all available agents in the Task tool.
 
 ---
 
-### playwright-roulette-expert
+### asus-router-expert
 
-**Triggers:** playwright, browser automation, casino, roulette
+**Triggers:** asus router, asuswrt, merlin, network hardening
 
 **Capabilities:**
-- Playwright automation
-- DOM manipulation
-- Coordinate-based clicking
-- Browser process management
-- Viewport configuration
+- Asus router configuration
+- Asuswrt-Merlin firmware
+- Network hardening
+- VPN and firewall setup
 
 **Best For:**
-- Browser automation
-- Game automation
-- Complex DOM interactions
-- Process management
+- Router configuration
+- Home network security
+- Firmware feature guidance
+
+---
+
+### claude-architect
+
+**Triggers:** claude code extensions, skills, agents, hooks, MCP, plugins
+
+**Capabilities:**
+- Skill/agent/command/hook design
+- Plugin and marketplace configuration
+- MCP server integration
+- Extension debugging
+
+**Best For:**
+- Building Claude Code extensions
+- Reviewing skills and agents
+- Plugin architecture decisions
+
+---
+
+### git-agent
+
+**Triggers:** commit, push, PR, branch, rebase (dispatched by git-ops)
+
+**Capabilities:**
+- Background git write operations
+- Commit and PR creation
+- Branch and worktree management
+- Safety-tiered execution
+
+**Best For:**
+- Dispatched git work from the git-ops skill
+- Background commits and pushes
 
 ---
 
@@ -485,14 +307,15 @@ Complete reference for all available agents in the Task tool.
 
 | Need | First Try | Then Try |
 |------|-----------|----------|
-| "How to write X in Python" | python-expert | - |
-| "Optimize this query" | postgres-expert | sql-expert |
+| "How to write X in Python" | python-* skill (e.g. python-pytest-ops) | general-purpose + skill preload |
+| "Optimize this query" | postgres-ops skill | general-purpose + skill preload |
 | "Find where X is defined" | Explore | general-purpose |
 | "Plan feature implementation" | Plan | general-purpose |
 | "Scrape this website" | firecrawl-expert | - |
 | "Deploy to Cloudflare" | wrangler-expert | cloudflare-expert |
-| "Fix React performance" | react-expert | - |
+| "Fix React performance" | react-ops skill | general-purpose + skill preload |
 | "Write E2E tests" | cypress-expert | - |
 | "Restructure project" | project-organizer | - |
-| "Go concurrency design" | go-expert | - |
-| "Rust lifetime issues" | rust-expert | - |
+| "Go concurrency design" | go-ops skill | general-purpose + skill preload |
+| "Rust lifetime issues" | rust-ops skill | general-purpose + skill preload |
+| "Build a Claude Code skill" | claude-architect | - |

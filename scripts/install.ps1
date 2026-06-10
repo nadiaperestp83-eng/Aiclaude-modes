@@ -42,7 +42,20 @@ $deprecated = @(
     "$claudeDir\commands\pulse.md",
     "$claudeDir\skills\conclave",
     "$claudeDir\skills\claude-code-templates",  # Replaced by skill-creator
-    "$claudeDir\skills\agentmail"               # Renamed to pigeon (v2.3.0)
+    "$claudeDir\skills\agentmail",              # Renamed to pigeon (v2.3.0)
+
+    # Deprecated agents (v3.0): folded into their -ops skill twins
+    "$claudeDir\agents\python-expert.md",
+    "$claudeDir\agents\typescript-expert.md",
+    "$claudeDir\agents\javascript-expert.md",
+    "$claudeDir\agents\go-expert.md",
+    "$claudeDir\agents\rust-expert.md",
+    "$claudeDir\agents\react-expert.md",
+    "$claudeDir\agents\vue-expert.md",
+    "$claudeDir\agents\astro-expert.md",
+    "$claudeDir\agents\laravel-expert.md",
+    "$claudeDir\agents\sql-expert.md",
+    "$claudeDir\agents\postgres-expert.md"
 )
 
 # Renamed skills: -patterns -> -ops (March 2026)

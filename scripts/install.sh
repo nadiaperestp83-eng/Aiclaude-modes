@@ -57,6 +57,19 @@ deprecated_items=(
     "$CLAUDE_DIR/skills/conclave"                # Deprecated
     "$CLAUDE_DIR/skills/claude-code-templates"   # Replaced by skill-creator
     "$CLAUDE_DIR/skills/agentmail"               # Renamed to pigeon (v2.3.0)
+
+    # Deprecated agents (v3.0): folded into their -ops skill twins
+    "$CLAUDE_DIR/agents/python-expert.md"
+    "$CLAUDE_DIR/agents/typescript-expert.md"
+    "$CLAUDE_DIR/agents/javascript-expert.md"
+    "$CLAUDE_DIR/agents/go-expert.md"
+    "$CLAUDE_DIR/agents/rust-expert.md"
+    "$CLAUDE_DIR/agents/react-expert.md"
+    "$CLAUDE_DIR/agents/vue-expert.md"
+    "$CLAUDE_DIR/agents/astro-expert.md"
+    "$CLAUDE_DIR/agents/laravel-expert.md"
+    "$CLAUDE_DIR/agents/sql-expert.md"
+    "$CLAUDE_DIR/agents/postgres-expert.md"
 )
 
 # Renamed skills: -patterns -> -ops (March 2026)

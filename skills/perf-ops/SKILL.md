@@ -1,6 +1,6 @@
 ---
 name: perf-ops
-description: "Performance profiling and optimization orchestrator - diagnoses symptoms, dispatches profiling to language experts, manages before/after comparisons. Triggers on: performance, profiling, flamegraph, pprof, py-spy, clinic.js, memray, heaptrack, bundle size, webpack analyzer, load testing, k6, artillery, vegeta, locust, benchmark, hyperfine, criterion, slow query, EXPLAIN ANALYZE, N+1, caching, optimization, latency, throughput, p99, memory leak, CPU spike, bottleneck."
+description: "Performance profiling and optimization orchestrator - diagnoses symptoms, dispatches skill-preloaded profiling agents, manages before/after comparisons. Triggers on: performance, profiling, flamegraph, pprof, py-spy, clinic.js, memray, heaptrack, bundle size, webpack analyzer, load testing, k6, artillery, vegeta, locust, benchmark, hyperfine, criterion, slow query, EXPLAIN ANALYZE, N+1, caching, optimization, latency, throughput, p99, memory leak, CPU spike, bottleneck."
 license: MIT
 allowed-tools: "Read Edit Write Bash Glob Grep Agent TaskCreate TaskUpdate"
 metadata:
@@ -10,7 +10,7 @@ metadata:
 
 # Performance Operations
 
-Orchestrator for cross-language performance profiling and optimization. Classifies symptoms inline, dispatches profiling to language expert agents (background), and manages optimization with confirmation.
+Orchestrator for cross-language performance profiling and optimization. Classifies symptoms inline, dispatches profiling to general-purpose agents preloaded with the relevant language `-ops` skill (background), and manages optimization with confirmation.
 
 ## Architecture
 
@@ -25,11 +25,11 @@ User describes performance issue or requests profiling
     |       +---> Gather system baseline (CPU/mem/disk)
     |       +---> Present: diagnosis + recommended profiling approach
     |
-    +---> T2: Profile (dispatch to language expert, background)
-    |       +---> Select expert agent from routing table
+    +---> T2: Profile (dispatch general-purpose + skill preload, background)
+    |       +---> Select skill preload from routing table
     |       +---> Build perf-focused dispatch prompt
-    |       +---> Expert runs profiler, collects data, interprets results
-    |       |       +---> Fallback: general-purpose with tool commands inlined
+    |       +---> Agent runs profiler, collects data, interprets results
+    |       |       +---> Fallback: tool commands inlined (no skill preload)
     |       +---> Returns: findings + bottleneck identification + suggestions
     |       |
     |       +---> [Optional parallel dispatch]:
@@ -37,8 +37,8 @@ User describes performance issue or requests profiling
     |             +---> Memory profiling agent --+--> Consolidate findings
     |             +---> Baseline benchmark ------+
     |
-    +---> T3: Optimize (dispatch to expert, foreground + confirm)
-            +---> Expert proposes specific code changes
+    +---> T3: Optimize (dispatch general-purpose + skill preload, foreground + confirm)
+            +---> Agent proposes specific code changes
             +---> Preflight: what changes, expected impact, risks
             +---> User confirms
             +---> Apply changes
@@ -67,21 +67,21 @@ No agent needed. Execute directly via Bash for instant results.
 
 **Production safety rule:** In production environments, only recommend sampling profilers (py-spy, pprof HTTP endpoint, perf). Never suggest attaching debuggers, tracing profilers, or tools that require process restart.
 
-### T2: Profile - Dispatch to Expert Agent
+### T2: Profile - Dispatch to Profiling Agent
 
-Gather context from T1 diagnosis, then dispatch to the appropriate language expert.
+Gather context from T1 diagnosis, then dispatch a `general-purpose` agent preloaded with the relevant language `-ops` skill plus the perf-ops references below.
 
-**Language Expert Routing:**
+**Language Routing:**
 
-| Detected Language | Expert Agent | Key Profiling Tools |
-|-------------------|-------------|---------------------|
-| Python (.py, pyproject.toml, requirements.txt) | python-expert | py-spy, memray, scalene, tracemalloc |
-| Go (go.mod, .go files) | go-expert | pprof (CPU/heap/goroutine/mutex), benchstat |
-| Rust (Cargo.toml, .rs files) | rust-expert | cargo-flamegraph, samply, DHAT, criterion |
-| TypeScript/JavaScript (backend, package.json + server) | javascript-expert | clinic flame/doctor/bubbleprof, 0x |
-| TypeScript/JavaScript (frontend, bundle issues) | typescript-expert | webpack-bundle-analyzer, Lighthouse, source-map-explorer |
-| SQL / PostgreSQL | postgres-expert | EXPLAIN ANALYZE, pg_stat_statements, pgbench |
-| General / unknown / CLI benchmarking | general-purpose | hyperfine, perf, strace |
+| Detected Language | Dispatch | Preload | Key Profiling Tools |
+|-------------------|----------|---------|---------------------|
+| Python (.py, pyproject.toml, requirements.txt) | general-purpose | relevant `skills/python-*/SKILL.md` + perf-ops references | py-spy, memray, scalene, tracemalloc |
+| Go (go.mod, .go files) | general-purpose | `skills/go-ops/SKILL.md` + perf-ops references | pprof (CPU/heap/goroutine/mutex), benchstat |
+| Rust (Cargo.toml, .rs files) | general-purpose | `skills/rust-ops/SKILL.md` + perf-ops references | cargo-flamegraph, samply, DHAT, criterion |
+| TypeScript/JavaScript (backend, package.json + server) | general-purpose | `skills/javascript-ops/SKILL.md` + perf-ops references | clinic flame/doctor/bubbleprof, 0x |
+| TypeScript/JavaScript (frontend, bundle issues) | general-purpose | `skills/typescript-ops/SKILL.md` + perf-ops references | webpack-bundle-analyzer, Lighthouse, source-map-explorer |
+| SQL / PostgreSQL | general-purpose | `skills/postgres-ops/SKILL.md` + perf-ops references | EXPLAIN ANALYZE, pg_stat_statements, pgbench |
+| General / unknown / CLI benchmarking | general-purpose | perf-ops references | hyperfine, perf, strace |
 
 **Dispatch template (T2):**
 
@@ -131,7 +131,7 @@ For database profiling, also read:
 
 ### T3: Optimize - Preflight Required
 
-Dispatch to language expert with explicit instruction to produce a preflight report before any code changes.
+Dispatch a general-purpose agent (preloaded per the language routing table) with explicit instruction to produce a preflight report before any code changes.
 
 **Dispatch template (T3 preflight):**
 
@@ -198,23 +198,27 @@ When multiple independent symptoms are detected, or the user requests comprehens
 ```python
 # Example: CPU + memory profiling in parallel
 Agent(
-    subagent_type="python-expert",
+    subagent_type="general-purpose",
     model="sonnet",
     run_in_background=True,
-    prompt="CPU profiling task: {cpu_prompt}"
+    prompt="First read skills/perf-ops/references/cpu-memory-profiling.md "
+           "and the relevant language skill (e.g. skills/python-pytest-ops/SKILL.md). "
+           "Then: CPU profiling task: {cpu_prompt}"
 )
 Agent(
-    subagent_type="python-expert",
+    subagent_type="general-purpose",
     model="sonnet",
     run_in_background=True,
-    prompt="Memory profiling task: {memory_prompt}"
+    prompt="First read skills/perf-ops/references/cpu-memory-profiling.md "
+           "and the relevant language skill (e.g. skills/python-pytest-ops/SKILL.md). "
+           "Then: Memory profiling task: {memory_prompt}"
 )
 # Both run simultaneously, consolidate findings when both complete
 ```
 
-## Fallback: When Expert Agent Is Unavailable
+## Fallback: When No Language Skill Matches
 
-If the target language expert is not registered as a subagent type, fall back to `general-purpose` with profiling commands inlined.
+If no language `-ops` skill covers the target, dispatch `general-purpose` with profiling commands inlined instead of a skill preload.
 
 ```python
 Agent(
@@ -253,7 +257,7 @@ When a performance-related request arrives:
    - Present findings + recommend next step
 
 3. T2 Profile (when diagnosis points to a specific bottleneck):
-   - Route to appropriate language expert
+   - Route per the language routing table (general-purpose + skill preload)
    - Decide foreground vs background
    - Consider parallel dispatch if multiple symptoms
    - Consolidate findings from all agents

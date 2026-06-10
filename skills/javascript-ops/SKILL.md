@@ -273,6 +273,7 @@ class AppError extends Error {
 | `references/modules-runtime.md` | ESM/CJS/dual packages, dynamic import, V8 internals, memory management, event loop deep dive |
 | `references/modern-features.md` | ES2022-2025 feature details, Proxy/Reflect, Decorators, Temporal, Explicit Resource Management |
 | `references/node-patterns.md` | node:test runner, fs/promises, worker_threads, streams, crypto, graceful shutdown, permission model |
+| `references/expert-insights.md` | Browser-side patterns: DOM batching, event delegation, debounce/throttle, memoization, lazy loading, XSS/CSP client security |
 
 ---
 

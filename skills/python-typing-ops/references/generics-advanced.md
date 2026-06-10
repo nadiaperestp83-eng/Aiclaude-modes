@@ -271,6 +271,40 @@ get_user(user_id)   # OK
 # get_user(42)        # Type error!
 ```
 
+## PEP 695 Type Parameter Syntax (Python 3.12+)
+
+```python
+# No explicit TypeVar declaration needed
+def first[T](items: list[T]) -> T | None:
+    return items[0] if items else None
+
+class Stack[T]:
+    def push(self, item: T) -> None: ...
+
+# Bounded type parameters
+def largest[T: (int, float)](items: list[T]) -> T:
+    return max(items)
+
+# Type alias statement replaces TypeAlias
+type Vector = list[float]
+type Result[T] = tuple[T, str | None]
+```
+
+## Override Decorator (Python 3.12+)
+
+```python
+from typing import override
+
+class Parent:
+    def greet(self) -> str:
+        return "Hello"
+
+class Child(Parent):
+    @override
+    def greet(self) -> str:  # Type checker errors if Parent.greet is renamed
+        return "Hi"
+```
+
 ## Best Practices
 
 1. **Name TypeVars descriptively** - `T`, `K`, `V` for simple cases; `ItemT`, `KeyT` for complex

@@ -302,6 +302,7 @@ Load these for deep-dive topics. Each is self-contained.
 | `./references/interfaces-generics.md` | Interface design, embedding, type assertions, generics, type constraints |
 | `./references/project-structure.md` | Standard layout, go.mod, workspaces, build tags, ldflags, golangci-lint |
 | `./references/performance.md` | pprof, trace, benchmarks, escape analysis, sync.Pool, struct alignment |
+| `./references/expert-insights.md` | HTTP server (Go 1.22 routing), graceful shutdown, http.Client tuning, JSON helpers |
 
 ## See Also
 
