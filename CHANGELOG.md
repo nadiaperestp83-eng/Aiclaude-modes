@@ -7,6 +7,8 @@ feature releases live in the README "Recent Updates" section.
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-06-10
+
 ### Removed
 - **11 language/framework expert agents** deprecated in favour of their `-ops`
   skill twins (python, typescript, javascript, go, rust, react, vue, astro,
@@ -53,7 +55,7 @@ feature releases live in the README "Recent Updates" section.
 - fleet-ops e2e suite asserted a worktree path `fleet.sh` no longer uses
   (now 29/29 against real behaviour)
 
-### Changed (v3 repositioning)
+### Changed
 - **fleet-ops v2** - repositioned as landing discipline (queue, test gate,
   pre-land scrub, one-shot revert) on top of native agent teams / background
   agents, which now own the spawning half; no longer EXPERIMENTAL except the
@@ -62,10 +64,8 @@ feature releases live in the README "Recent Updates" section.
   context; these commands' value is portable state: task restore,
   git-trackable, team-shareable, cross-machine
 - supply-chain-defense description trimmed under the 1,536-char listing cap
-
-### Changed
-- README/AGENTS.md/PLAN.md reconciled with actual inventory (80 skills, 9 hooks,
-  7 rules); ghost references removed (`rules/thinking.md`, `docs/DASH.md`)
+- README/AGENTS.md/PLAN.md reconciled with actual inventory; ghost references
+  removed (`rules/thinking.md`, `docs/DASH.md`)
 - `tests/skills/functional/git-workflow.*` renamed to `git-cli-tools.*`
 
 ## [2.10.1] - 2026-05-29
@@ -239,7 +239,8 @@ feature releases live in the README "Recent Updates" section.
   agents, Python skill family, tech-debt scanner, modern CLI toolkit, validation
   suite
 
-[Unreleased]: https://github.com/0xDarkMatter/claude-mods/compare/v2.10.1...HEAD
+[Unreleased]: https://github.com/0xDarkMatter/claude-mods/compare/v3.0.0...HEAD
+[3.0.0]: https://github.com/0xDarkMatter/claude-mods/compare/v2.10.1...v3.0.0
 [2.10.1]: https://github.com/0xDarkMatter/claude-mods/compare/v2.10.0...v2.10.1
 [2.10.0]: https://github.com/0xDarkMatter/claude-mods/compare/v2.9.0...v2.10.0
 [2.9.0]: https://github.com/0xDarkMatter/claude-mods/compare/v2.8.0...v2.9.0
