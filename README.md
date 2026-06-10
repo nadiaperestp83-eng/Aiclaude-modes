@@ -128,7 +128,7 @@ From Python async patterns to Rust ownership models, from AWS Fargate deployment
 - 📚 Enhanced skill-creator with [official Anthropic docs](https://github.com/anthropics/skills) and best practices (+554 lines)
 - 🐛 Fixed `/sync` filesystem scanning issue on Windows (Git Bash compatibility)
 
-[View full changelog →](https://github.com/0xDarkMatter/claude-mods/commits/main)
+[View full changelog →](CHANGELOG.md)
 
 ## Why claude-mods?
 
