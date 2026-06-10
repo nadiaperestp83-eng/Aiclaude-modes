@@ -88,7 +88,7 @@ and the API rejects the request.
 | `stop_sequence` | Hit a custom stop string | `stop_sequence` field has which one |
 | `tool_use` | Claude wants tool(s) executed | Execute each `tool_use` block, send `tool_result`(s), re-request |
 | `pause_turn` | Server-side tool loop hit its iteration limit | Append the assistant turn and re-send unchanged — server resumes; do NOT add a "continue" user message |
-| `refusal` | Safety refusal | Check `stop_details` (`category`: "cyber"/"bio"/null, `explanation`); don't retry same prompt |
+| `refusal` | Safety refusal | Check `stop_details` (`category`: "cyber"/"bio"/"reasoning_extraction" (Fable 5)/null, `explanation`); don't retry same prompt |
 | `model_context_window_exceeded` | Context window exhausted (distinct from max_tokens) | Compact, truncate, or split the conversation |
 
 ```python

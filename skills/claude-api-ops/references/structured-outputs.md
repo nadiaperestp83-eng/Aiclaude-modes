@@ -7,8 +7,10 @@ Two related features, same constrained-sampling mechanism:
 | **JSON outputs** | `output_config: {"format": {...}}` | Claude's response text (guaranteed valid JSON matching your schema) |
 | **Strict tool use** | `strict: true` on a tool definition | The `input` of tool calls |
 
-They can be combined in one request. Supported on Fable 5, Opus 4.8/4.7/4.6/4.5,
-Sonnet 4.6/4.5, Haiku 4.5.
+They can be combined in one request. Supported on Opus 4.8/4.7/4.6/4.5,
+Sonnet 4.6/4.5, Haiku 4.5 - **NOT Fable 5**. On Fable 5, enforce output shape
+via system-prompt instructions (the documented prefill replacement for that
+model) or strict tool use instead.
 
 **Naming:** the canonical parameter is `output_config.format`. The older
 top-level `output_format` parameter (and the `structured-outputs-2025-11-13`

@@ -59,9 +59,10 @@ Rules:
 
 | Model | Minimum prefix tokens |
 |---|---:|
-| Opus 4.8 / 4.7 / 4.6 / 4.5, Haiku 4.5 | 4096 |
-| Fable 5, Sonnet 4.6 | 2048 |
-| Sonnet 4.5 and older Sonnets | 1024 |
+| Opus 4.6 / 4.5, Haiku 4.5 | 4096 |
+| Opus 4.7 | 2048 |
+| Opus 4.8, Sonnet 4.6, Sonnet 4.5 | 1024 |
+| Fable 5 | 512 |
 
 ### Pricing & break-even
 

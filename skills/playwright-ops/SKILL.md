@@ -215,7 +215,7 @@ Always assert a logged-in signal before saving state, or you save a half-logged-
 
 | Knob | Setting | Notes |
 |------|---------|-------|
-| Workers | `workers: process.env.CI ? 1 : undefined` | Local: one per ~CPU core. CI runners are small — shard machines instead of oversubscribing |
+| Workers | `workers: process.env.CI ? 1 : undefined` | Local: half the logical CPU cores. CI runners are small — shard machines instead of oversubscribing |
 | File-level parallel | `fullyParallel: true` | Also makes sharding split per-test, not per-file |
 | Sharding | `npx playwright test --shard=1/4` | One shard per CI machine; merge blob reports after |
 | Retries | `retries: process.env.CI ? 2 : 0` | Pair with `trace: 'on-first-retry'`; treat "flaky" status as a bug queue, not a fix |

@@ -241,10 +241,11 @@ Built-in tools (Read/Write/Edit/Bash/Glob/Grep/WebSearch/WebFetch/...), hooks
 |---|---|---|
 | Date-suffixed or guessed model ID | 404 `not_found_error` | Use exact alias IDs from the table above |
 | `budget_tokens` on Fable 5 / Opus 4.8 / 4.7 | 400 | `thinking: {"type": "adaptive"}` |
+| Assuming thinking is opt-in on Fable 5 | Unexpected thinking tokens billed | Fable 5 thinking is always-on and cannot be disabled (`{"type": "disabled"}` rejected); budget for it |
 | `temperature`/`top_p`/`top_k` on Fable 5 / Opus 4.8 / 4.7 | 400 | Remove; steer via prompt + `effort` |
 | Thinking + `tool_choice: any/tool` | 400 | Only `auto`/`none` with thinking on |
 | Assistant-turn prefill on 4.6+ models | 400 | `output_config.format` or system-prompt instruction |
-| Cache marker on <minimum prefix | Silent no-cache (`cache_creation_input_tokens: 0`) | Min ~1024-4096 tokens depending on model (see caching ref) |
+| Cache marker on <minimum prefix | Silent no-cache (`cache_creation_input_tokens: 0`) | Min 512-4096 tokens depending on model (see caching ref) |
 | Not handling `stop_reason: "tool_use"` | Agent "stops" after first tool call | Loop: execute tools, append `tool_result`, re-request |
 | Missing `tool_result` for a `tool_use` id | 400 on follow-up | One `tool_result` per `tool_use` block, ids matching |
 | Non-streaming with `max_tokens` > ~16K | SDK timeout / `ValueError` | Stream + `get_final_message()` / `finalMessage()` |

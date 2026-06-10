@@ -75,7 +75,7 @@ jobs:
         working-directory: ${{ env.WORKING_DIR }}
 
       - name: trivy misconfig scan
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@v0.33.1
         with:
           scan-type: config
           scan-ref: ${{ env.WORKING_DIR }}

@@ -142,7 +142,7 @@ Why blocks beat `terraform import` CLI: the import is planned (you see exactly w
 
 After a successful apply, delete the `import` blocks — they're one-shot.
 
-### `removed` — forget without destroying (TF ≥ 1.7, OpenTofu ≥ 1.8)
+### `removed` — forget without destroying (TF ≥ 1.7, OpenTofu ≥ 1.7)
 
 ```hcl
 removed {

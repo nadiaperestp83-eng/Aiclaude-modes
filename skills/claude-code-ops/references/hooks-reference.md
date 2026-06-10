@@ -101,7 +101,7 @@ Universal fields (any event):
   "stopReason": "why we stopped", // shown when continue:false
   "suppressOutput": true,         // hide stdout from transcript
   "systemMessage": "warning shown to user",
-  "terminalSequence": "]…"  // raw OSC sequence (v2.1.141+)
+  "terminalSequence": "\u001b]…"  // raw OSC sequence (v2.1.141+)
 }
 ```
 
