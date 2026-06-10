@@ -338,6 +338,9 @@ See [skill-creator](skills/skill-creator/) for the complete guide.
 > their knowledge. Subagent = the isolation mechanism, skill = the knowledge it loads. The agents below remain
 > because they have no skill twin (a distinct capability, or — like git-agent — a real background-worker role
 > that uses the isolation boundary).
+>
+> Sources: [Agent Skills](https://code.claude.com/docs/en/skills) — progressive disclosure and on-demand
+> loading; [Subagents](https://code.claude.com/docs/en/sub-agents) — a separate context window for delegated work.
 
 | Agent | Description |
 |-------|-------------|
