@@ -1,0 +1,211 @@
+# =============================================================================
+# Terraform CI/CD — PR plan + OIDC apply (GitHub Actions template)
+# =============================================================================
+# What this gives you:
+#   * PRs:   fmt-check -> validate -> tflint -> trivy -> plan -> plan posted as
+#            a PR comment (updated in place, not stacked)
+#   * Merge: fresh plan + apply on main, gated by a GitHub "environment"
+#            (add required reviewers on the environment for a manual approval)
+#   * Auth:  AWS via OIDC — NO long-lived access keys anywhere.
+#
+# Adapt before use:
+#   1. Set WORKING_DIR to your root module (e.g. environments/prod).
+#   2. Replace the two role ARNs (plan = read-only, apply = write).
+#   3. Pin every `uses:` to a commit SHA for your security posture —
+#      tags are shown here for readability; SHA-pin in production:
+#        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+#   4. OpenTofu: swap hashicorp/setup-terraform for opentofu/setup-opentofu
+#      (input `tofu_version`) and `terraform` for `tofu` in run steps.
+#   5. Multi-env monorepo: turn `WORKING_DIR` into a job matrix.
+# =============================================================================
+
+name: terraform
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ["environments/prod/**", "modules/**"]   # plan only when infra changes
+  push:
+    branches: [main]
+    paths: ["environments/prod/**", "modules/**"]
+
+# Least privilege by default; jobs widen only what they need.
+permissions:
+  contents: read
+
+env:
+  TF_VERSION: "1.15.5"            # match required_version in versions.tf
+  WORKING_DIR: environments/prod
+  AWS_REGION: ap-southeast-2
+  TF_IN_AUTOMATION: "true"        # suppresses interactive-use hints in output
+
+# One run per state file at a time. Plans queue; applies never overlap.
+concurrency:
+  group: terraform-prod
+  cancel-in-progress: false       # NEVER cancel a running apply
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # PR: static checks + plan + comment
+  # ---------------------------------------------------------------------------
+  plan:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write             # OIDC token for AWS
+      pull-requests: write        # post the plan comment
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIR }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      # --- cheap static gates first: fail fast before touching the cloud ---
+      - name: fmt
+        run: terraform fmt -check -recursive -diff
+
+      - name: tflint
+        uses: terraform-linters/setup-tflint@v6
+      - run: tflint --init && tflint --recursive
+        working-directory: ${{ env.WORKING_DIR }}
+
+      - name: trivy misconfig scan
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-type: config
+          scan-ref: ${{ env.WORKING_DIR }}
+          exit-code: "1"          # hard gate; set "0" while triaging a baseline
+          severity: HIGH,CRITICAL
+
+      # --- read-only cloud credentials, scoped to PR plans ---
+      # This role's trust policy allows any branch of THIS repo, but the role
+      # itself carries ReadOnlyAccess + state-bucket read. PR code cannot mutate.
+      - name: Configure AWS credentials (plan role, read-only)
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: arn:aws:iam::123456789012:role/github-terraform-plan
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: init
+        run: terraform init -input=false -lock-timeout=2m
+
+      - name: validate
+        run: terraform validate -no-color
+
+      - name: plan
+        id: plan
+        # -lock=false: a PR plan must never block (or be blocked by) an apply
+        run: |
+          set -o pipefail
+          terraform plan -input=false -no-color -lock=false -out=tfplan 2>&1 \
+            | tee plan.txt
+        continue-on-error: true   # we still want the comment when plan fails
+
+      # Optional org-policy gate against the machine-readable plan:
+      # - run: terraform show -json tfplan > tfplan.json
+      # - run: conftest test --policy ../../policy tfplan.json
+
+      - name: Comment plan on PR
+        uses: actions/github-script@v8
+        env:
+          PLAN_OUTCOME: ${{ steps.plan.outcome }}
+        with:
+          script: |
+            const fs = require('fs');
+            const dir = process.env.WORKING_DIR;
+            const marker = `### Terraform plan — \`${dir}\``;
+            let plan = fs.readFileSync(`${dir}/plan.txt`, 'utf8');
+            // GitHub comment hard cap is 65,536 chars — keep the tail (the summary)
+            if (plan.length > 60000) plan = '... (truncated, see job log)\n' + plan.slice(-60000);
+            const status = process.env.PLAN_OUTCOME === 'success' ? '' : '\n> **PLAN FAILED** — see details below.';
+            const body = `${marker}${status}\n<details><summary>Show plan</summary>\n\n\`\`\`hcl\n${plan}\n\`\`\`\n</details>`;
+            const { data: comments } = await github.rest.issues.listComments({
+              ...context.repo, issue_number: context.issue.number });
+            const prev = comments.find(c => c.body.startsWith(marker));
+            if (prev) {
+              await github.rest.issues.updateComment({ ...context.repo, comment_id: prev.id, body });
+            } else {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });
+            }
+
+      - name: Fail job if plan failed
+        if: steps.plan.outcome == 'failure'
+        run: exit 1
+
+  # ---------------------------------------------------------------------------
+  # Merge to main: fresh plan + apply
+  # ---------------------------------------------------------------------------
+  apply:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # The "production" environment is where the human gate lives:
+    # repo Settings -> Environments -> production -> required reviewers.
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIR }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      # Apply role: write permissions, trust policy locked to
+      #   repo:myorg/infra:environment:production
+      # so ONLY this gated environment on main can assume it.
+      - name: Configure AWS credentials (apply role)
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: arn:aws:iam::123456789012:role/github-terraform-apply
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: init
+        run: terraform init -input=false -lock-timeout=5m
+
+      # Fresh plan at merge time. If the world moved since PR review, this plan
+      # differs from the reviewed one — the saved-plan apply below makes that
+      # explicit rather than silently applying something new.
+      - name: plan
+        run: terraform plan -input=false -no-color -lock-timeout=5m -out=tfplan
+
+      - name: apply
+        # Applying the saved plan (not `apply -auto-approve` on config) means
+        # we apply EXACTLY what the step above planned — no second refresh gap.
+        run: terraform apply -input=false -no-color tfplan
+
+  # ---------------------------------------------------------------------------
+  # Nightly drift detection
+  # ---------------------------------------------------------------------------
+  # Move to its own file with `on: schedule` if you prefer; shown here for
+  # completeness. Exit code 2 from -detailed-exitcode means drift.
+  # drift:
+  #   if: github.event_name == 'schedule'
+  #   runs-on: ubuntu-latest
+  #   permissions: { contents: read, id-token: write }
+  #   steps:
+  #     - uses: actions/checkout@v5
+  #     - uses: hashicorp/setup-terraform@v3
+  #       with: { terraform_version: "1.15.5" }
+  #     - uses: aws-actions/configure-aws-credentials@v5
+  #       with:
+  #         role-to-assume: arn:aws:iam::123456789012:role/github-terraform-plan
+  #         aws-region: ap-southeast-2
+  #     - run: terraform init -input=false
+  #       working-directory: environments/prod
+  #     - name: drift check
+  #       working-directory: environments/prod
+  #       run: |
+  #         set +e
+  #         terraform plan -detailed-exitcode -lock=false -input=false -no-color
+  #         code=$?
+  #         [ "$code" -eq 2 ] && { echo "::error::Drift detected in prod"; exit 1; }
+  #         exit $code

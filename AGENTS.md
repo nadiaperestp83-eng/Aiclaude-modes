@@ -5,7 +5,7 @@
 This is **claude-mods** - a collection of custom extensions for Claude Code:
 - **12 expert agents** for domains without a skill twin (Cloudflare, Cypress, CraftCMS, git-agent, web scraping, etc.) - language/framework experts were folded into their `-ops` skills (v3.0, skills-first)
 - **2 commands** for session management (/sync, /save)
-- **80 skills** for CLI tools, patterns, workflows, and development tasks (incl. `supply-chain-defense` for behavioural-first dependency security, `prompt-injection-defense` for instruction-integrity scanning, `net-ops` for network troubleshooting, `windows-ops` / `mac-ops` for workstation diagnostics)
+- **81 skills** for CLI tools, patterns, workflows, and development tasks (incl. `supply-chain-defense` for behavioural-first dependency security, `prompt-injection-defense` for instruction-integrity scanning, `net-ops` for network troubleshooting, `windows-ops` / `mac-ops` for workstation diagnostics)
 - **13 output styles** for response personality (Vesper, Spartan, Mentor, Executive, Pair, Atlas, Coach, Harbour, Meridian, Noir, Roast, Sage, Scout)
 - **9 hooks** for pre-commit linting, post-edit formatting, dangerous command warnings, uv enforcement, dependency-install + manifest-edit supply-chain advisories, hidden-Unicode scanning (session-start + pre-commit), and pmail notifications
 - **Pigeon** inter-session messaging (`pigeon send/read/reply`) - SQLite-backed pmail at `~/.claude/pmail.db`

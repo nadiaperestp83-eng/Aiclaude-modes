@@ -12,13 +12,13 @@
 
 > *A comprehensive extension toolkit that transforms Claude Code into a specialized development powerhouse.*
 
-**claude-mods** is a production-ready plugin that extends Claude Code with 80 specialized skills, 12 expert agents, 13 output styles, 9 hooks, and modern CLI tools designed for real-world development workflows. Whether you're debugging React hooks, optimizing PostgreSQL queries, or building production CLI applications, this toolkit equips Claude with the domain expertise and procedural knowledge to work at expert level across multiple technology stacks.
+**claude-mods** is a production-ready plugin that extends Claude Code with 81 specialized skills, 12 expert agents, 13 output styles, 9 hooks, and modern CLI tools designed for real-world development workflows. Whether you're debugging React hooks, optimizing PostgreSQL queries, or building production CLI applications, this toolkit equips Claude with the domain expertise and procedural knowledge to work at expert level across multiple technology stacks.
 
 Built on the [Agent Skills specification](https://agentskills.io/specification) (an open standard backed by Anthropic, Vercel, Google, Microsoft, and 40+ agent platforms), claude-mods fills critical gaps in Claude Code's capabilities: persistent session state that survives across machines, on-demand expert knowledge for specialized domains, token-efficient modern CLI tools (10-100x faster than traditional alternatives), and proven workflow patterns for TDD, code review, and feature development. The toolkit implements Anthropic's [recommended patterns for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents), ensuring your development context never vanishes when sessions end.
 
 From Python async patterns to Rust ownership models, from AWS Fargate deployments to Craft CMS development - claude-mods provides the specialized knowledge and tools that transform Claude from a general-purpose assistant into a domain expert who understands your stack, remembers your workflow, and ships production code.
 
-**12 agents. 80 skills. 13 styles. 9 hooks. 7 rules. One install.**
+**12 agents. 81 skills. 13 styles. 9 hooks. 7 rules. One install.**
 
 ## Recent Updates
 
@@ -161,7 +161,7 @@ claude-mods/
 ├── .claude-plugin/     # Plugin metadata
 ├── agents/             # Expert subagents (12)
 ├── commands/           # Slash commands (2)
-├── skills/             # Custom skills (80)
+├── skills/             # Custom skills (81)
 ├── output-styles/      # Response personalities
 ├── hooks/              # Hook examples & docs
 ├── rules/              # Claude Code rules
@@ -283,6 +283,7 @@ See [skill-creator](skills/skill-creator/) for the complete guide.
 | [sql-ops](skills/sql-ops/) | CTEs, window functions, JOIN patterns, indexing |
 | [postgres-ops](skills/postgres-ops/) | PostgreSQL operations, optimization, schema design, replication, monitoring |
 | [sqlite-ops](skills/sqlite-ops/) | SQLite schemas, Python sqlite3/aiosqlite patterns |
+| [claude-api-ops](skills/claude-api-ops/) | Build on Claude - Messages API, tool use, prompt caching, structured outputs, batches, Agent SDK |
 | [mcp-ops](skills/mcp-ops/) | MCP server development, FastMCP, transports, tool design, testing |
 
 #### Infrastructure Skills
@@ -296,6 +297,7 @@ See [skill-creator](skills/skill-creator/) for the complete guide.
 | [monitoring-ops](skills/monitoring-ops/) | Prometheus, Grafana, OpenTelemetry, structured logging, alerting |
 | [debug-ops](skills/debug-ops/) | Systematic debugging, language-specific debuggers, common scenarios |
 | [perf-ops](skills/perf-ops/) | Performance profiling - CPU, memory, bundle analysis, load testing, flamegraphs |
+| [terraform-ops](skills/terraform-ops/) | Terraform/OpenTofu IaC - state management, module patterns, OIDC CI/CD, drift detection, secrets |
 | [supply-chain-defense](skills/supply-chain-defense/) | Behavioural-first dependency security - Socket.dev (free CLI + depscore MCP), exposure-check (IOC match across npm/pnpm/yarn/bun/PyPI/Composer/Cargo/Go/RubyGems + extensions), integrity-audit (worm persistence), scan-extensions, install/manifest hooks |
 | [prompt-injection-defense](skills/prompt-injection-defense/) | Instruction-integrity defense - hidden Unicode scanning (bidi/Trojan Source, tag-block smuggling, zero-width), content sanitization, trust-boundary doctrine |
 | [security-ops](skills/security-ops/) | Reactive security auditing - 3 parallel agents (dependency CVEs, SAST patterns, auth/config review) consolidated into OWASP-mapped report |
@@ -355,9 +357,8 @@ See [skill-creator](skills/skill-creator/) for the complete guide.
 | [scaffold](skills/scaffold/) | Project scaffolding - generate boilerplate for APIs, web apps, CLIs, monorepos |
 | [iterate](skills/iterate/) | Autonomous improvement loop - modify, measure, keep or discard, repeat. Inspired by Karpathy's autoresearch. |
 | [testing-ops](skills/testing-ops/) | Test strategy patterns - mocking, CI testing, test data design |
-| [claude-code-debug](skills/claude-code-debug/) | Troubleshoot Claude Code extensions - skills not loading, hooks not firing |
-| [claude-code-headless](skills/claude-code-headless/) | Run Claude Code programmatically - headless mode, output formats, CI/CD scripting |
-| [claude-code-hooks](skills/claude-code-hooks/) | Claude Code hook system - events, configuration, security patterns |
+| [claude-code-internals](skills/claude-code-internals/) | Claude Code internals - full hook event catalog, skill frontmatter spec, headless/CLI reference, extension debugging |
+| [playwright-ops](skills/playwright-ops/) | Playwright e2e testing - selector hierarchy, fixtures, network mocking, CI sharding, flake hunting |
 
 ### Hooks
 

@@ -57,6 +57,9 @@ deprecated_items=(
     "$CLAUDE_DIR/skills/conclave"                # Deprecated
     "$CLAUDE_DIR/skills/claude-code-templates"   # Replaced by skill-creator
     "$CLAUDE_DIR/skills/agentmail"               # Renamed to pigeon (v2.3.0)
+    "$CLAUDE_DIR/skills/claude-code-debug"       # Merged into claude-code-internals (v3.0)
+    "$CLAUDE_DIR/skills/claude-code-headless"    # Merged into claude-code-internals (v3.0)
+    "$CLAUDE_DIR/skills/claude-code-hooks"       # Merged into claude-code-internals (v3.0)
 
     # Deprecated agents (v3.0): folded into their -ops skill twins
     "$CLAUDE_DIR/agents/python-expert.md"

@@ -16,7 +16,7 @@
 | Component | Count | Notes |
 |-----------|-------|-------|
 | Agents | 12 | Domain experts without skill twins + git-agent background worker |
-| Skills | 80 | Operational skills, CLI tools, workflows, diagnostics, security |
+| Skills | 81 | Operational skills, CLI tools, workflows, diagnostics, security |
 | Commands | 2 | Session management (sync, save) |
 | Rules | 7 | cli-tools, commit-style, naming-conventions, prompt-injection, skill-agent-updates, supply-chain, worktree-boundaries |
 | Output Styles | 13 | Vesper, Spartan, Mentor, Executive, Pair, Atlas, Coach, Harbour, Meridian, Noir, Roast, Sage, Scout |
@@ -43,10 +43,10 @@ Counts are enforced by the CI doc-drift gate (see roadmap) — if this table rot
       typescript, javascript, go, rust, react, vue, astro, laravel, sql,
       postgres). Unique content folded into twin skills; dispatching skills
       now route general-purpose agents with skill preloading. 23 → 12 agents.
-- [ ] **claude-code-internals**: merge + refresh claude-code-debug /
+- [x] **claude-code-internals**: merged + refreshed claude-code-debug /
       claude-code-headless / claude-code-hooks against current official docs
-      (new hook events, skill frontmatter fields, CLI flags).
-- [ ] **New skills**: claude-api-ops (Messages API, tool use, caching, Agent SDK),
+      (30-event hook catalog, current skill frontmatter, current CLI flags).
+- [x] **New skills**: claude-api-ops (Messages API, tool use, caching, Agent SDK),
       playwright-ops, terraform-ops.
 
 ### Phase 3 — Distribution & native-feature adoption

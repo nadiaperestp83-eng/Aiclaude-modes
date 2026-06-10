@@ -13,8 +13,23 @@ feature releases live in the README "Recent Updates" section.
   laravel, sql, postgres) - unique agent content folded into the skills;
   dispatching skills (review, testgen, explain, perf-ops, security-ops) now
   route `general-purpose` agents with skill preloading. 23 → 12 agents.
+- `claude-code-debug`, `claude-code-headless`, `claude-code-hooks` skills -
+  merged into `claude-code-internals` (content was written against Claude Code
+  ~2.0; the stale `$TOOL_INPUT` hook contract is gone, stdin JSON is current)
 
 ### Added
+- **`claude-api-ops` skill** - building ON Claude: Messages API, tool use,
+  prompt caching, structured outputs (`output_config.format`), batches,
+  extended thinking, model selection, Agent SDK (Python + TypeScript)
+- **`playwright-ops` skill** - e2e testing: selector hierarchy, fixtures/POM,
+  network mocking, auth storageState, CI sharding, flake hunting, config template
+- **`terraform-ops` skill** - Terraform/OpenTofu IaC: state management,
+  module patterns, OIDC CI/CD workflow template, drift detection, write-only
+  secrets, native `terraform test`
+- **`claude-code-internals` skill** - merges + refreshes claude-code-debug,
+  claude-code-headless, claude-code-hooks against current docs: 30-event hook
+  catalog with JSON contracts, current skill frontmatter spec, headless/CLI
+  reference, extension debugging decision trees
 - CI: doc-drift gate (`tests/doc-drift.sh`) - docs must match disk
 - CI: skill behavioural test suites (`tests/run-skill-tests.sh`)
 
