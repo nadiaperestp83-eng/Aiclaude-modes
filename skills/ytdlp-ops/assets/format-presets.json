@@ -1,0 +1,39 @@
+{
+  "_meta": {
+    "schema": "claude-mods.ytdlp-ops.format-presets/v1",
+    "updated": "2026-06-12",
+    "notes": "Canonical yt-dlp argument presets per destination. Args are list-form (paste-safe, no shell quoting surprises). Presets prefer -S sort over -f filters so they degrade gracefully when an extractor stops offering an exact combo. Verify against a current yt-dlp with scripts/check-ytdlp-version.sh --live."
+  },
+  "presets": {
+    "web-mp4-1080": {
+      "goal": "H.264/AAC MP4 ready for browsers and editors - zero post-download transcode",
+      "args": ["-S", "res:1080,vcodec:h264,acodec:m4a", "--merge-output-format", "mp4"],
+      "handoff": "none - file is delivery-ready; ffmpeg-ops only if further editing is needed"
+    },
+    "archival-best": {
+      "goal": "Best available quality regardless of codec, as a master for later processing",
+      "args": ["-S", "res,fps,hdr:12,vcodec,acodec", "--merge-output-format", "mkv", "--embed-metadata", "--embed-chapters"],
+      "handoff": "ffmpeg-ops encoding.md for any delivery transcode from this master"
+    },
+    "stt-audio": {
+      "goal": "Audio-only acquisition for transcription pipelines - Opus copied out, no transcode",
+      "args": ["-x", "--audio-format", "opus", "-o", "%(id)s.%(ext)s"],
+      "handoff": "ffmpeg-ops stt-whisper.md for 16 kHz mono PCM prep"
+    },
+    "clip-precise": {
+      "goal": "Frame-accurate section download (re-encodes at the cut points only)",
+      "args": ["--download-sections", "*START-END", "--force-keyframes-at-cuts", "-S", "res:1080,vcodec:h264,acodec:m4a"],
+      "handoff": "replace *START-END, e.g. *10:00-12:30; multi-cut edits -> download whole + ffmpeg-ops EDL"
+    },
+    "mobile-small": {
+      "goal": "Smallest acceptable file at a resolution floor (bandwidth/storage constrained)",
+      "args": ["-S", "res:480,+size,+br", "--merge-output-format", "mp4"],
+      "handoff": "none"
+    },
+    "channel-sync": {
+      "goal": "Incremental channel/playlist sync - resumable, stops at first already-archived item",
+      "args": ["--download-archive", "archive.txt", "--break-on-existing", "--lazy-playlist", "-S", "res:1080,vcodec:h264,acodec:m4a", "--sleep-requests", "1", "--sleep-interval", "5", "--max-sleep-interval", "15", "-o", "%(channel)s/%(upload_date)s - %(title).100B [%(id)s].%(ext)s"],
+      "handoff": "see references/playlists-archives.md for the cron pattern and non-chronological caveat"
+    }
+  }
+}

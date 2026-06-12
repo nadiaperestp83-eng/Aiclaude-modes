@@ -44,6 +44,15 @@ run "hooks-lint --help"                   0 "$PY" skills/claude-code-ops/scripts
 echo "== playwright-ops: flake-triage"
 run "flake-triage --help" 0 "$PY" skills/playwright-ops/scripts/triage-flakes.py --help
 
+echo "== ffmpeg-ops: command/resource verifier"
+run "ffmpeg-ops --offline consistent" 0 bash skills/ffmpeg-ops/scripts/verify-commands.sh --offline
+run "ffmpeg-ops --help"               0 bash skills/ffmpeg-ops/scripts/verify-commands.sh --help
+
+
+echo "== ytdlp-ops: version/staleness verifier"
+run "ytdlp-ops --offline consistent" 0 bash skills/ytdlp-ops/scripts/check-ytdlp-version.sh --offline
+run "ytdlp-ops --help"               0 bash skills/ytdlp-ops/scripts/check-ytdlp-version.sh --help
+
 echo "== protocol: every new verifier is executable + compiles"
 for s in skills/claude-api-ops/scripts/check-model-table.py \
          skills/claude-code-ops/scripts/validate-hooks-json.py \
@@ -52,6 +61,10 @@ for s in skills/claude-api-ops/scripts/check-model-table.py \
 done
 bash -n skills/terraform-ops/scripts/check-action-refs.sh 2>/dev/null \
     && pass "bash -n check-action-refs.sh" || bad "bash -n check-action-refs.sh"
+bash -n skills/ffmpeg-ops/scripts/verify-commands.sh 2>/dev/null \
+    && pass "bash -n verify-commands.sh" || bad "bash -n verify-commands.sh"
+bash -n skills/ytdlp-ops/scripts/check-ytdlp-version.sh 2>/dev/null \
+    && pass "bash -n check-ytdlp-version.sh" || bad "bash -n check-ytdlp-version.sh"
 
 echo
 if [ "$fail" -eq 0 ]; then echo "resource checks: clean"; exit 0; fi

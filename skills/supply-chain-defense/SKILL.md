@@ -65,10 +65,28 @@ editor extensions** against an IOC catalog seeded with cited 2026 incidents (axi
 1.14.1, Laravel-Lang tag rewrite, Nx Console 18.95.0 → the GitHub breach). For fleet-scale exposure response
 on macOS/Linux, see Bumblebee in `references/tooling-landscape.md`.
 
+Watching what already-running code **does on the network** — an unexplained UAC
+prompt, a process you can't place, or just wanting a tripwire for the
+post-compromise phase: a stealer that already landed exfiltrates as an *outbound
+connection* (Shai-Hulud phoned home to `webhook.site`). On Windows,
+`scripts/phone-home-monitor.ps1` maps every outbound TCP connection to its owning
+process + parent chain + signing status and flags interpreter/raw-IP/IOC/
+package-manager-child patterns. See `references/phone-home-monitoring.md`.
+
+Defending a repo you *already own* against being poisoned in place — the
+**config-as-code / trusted-repo** class (PolinRider / EtherHiding, DPRK UNC5342)
+where the dependency tree stays clean and an obfuscated blockchain-C2 loader is
+appended to your own `vite.config.js` / `tailwind.config.js` / `.vscode/tasks.json`,
+then propagated by backdated false-flag force-pushes. The dependency scanners are
+blind to this; `scripts/config-drift-check.py` (pre-commit + CI) plus the
+branch-protection / signed-commits / hardware-key discipline in
+`references/repo-integrity.md` cover it. Workflow L.
+
 Wanting proof the skill covers a specific attack — the
 `references/threat-model.md` "Coverage" matrix maps every 2026 vector
 (maintainer compromise, OIDC theft, lifecycle scripts, persistence hooks, forged
-provenance, tag-rewrite, malicious extensions, MCP attacks) to its control + caveat.
+provenance, tag-rewrite, malicious extensions, MCP attacks, **config-as-code /
+trusted-repo poisoning**) to its control + caveat.
 
 ## Overview
 
@@ -87,7 +105,11 @@ This skill is the operational complement to two siblings:
 > `references/threat-model.md` for why lockfiles, `npm audit`, 2FA, and even
 > Sigstore/SLSA provenance were each bypassed in the wild in 2026.
 
-## The four layers
+## The layers
+
+Layers 1–5 are **dependency-integrity** (is a package I pull malicious?). Layer 6 is
+a **separate detection surface — repo-integrity** (is a repo I already own being
+poisoned in place?). They are not the same problem; see the note below.
 
 | Layer | Control | What it stops |
 |---|---|---|
@@ -95,6 +117,22 @@ This skill is the operational complement to two siblings:
 | 2. Interception | `socket` CLI wrapper + `pre-install-scan.sh` hook | Lifecycle scripts (`postinstall`, sdist `setup.py`) executing on install |
 | 3. Hygiene | Stale-OIDC audit, dep cooldown, token rotation, extension audit | The *entry points* worms use to mint publish access |
 | 4. Self-integrity + exposure | `integrity-audit.sh` (persistence hooks in AI-tool / editor configs) + `exposure-check.py` (am I running a named-bad package?) | Worm persistence on *this* machine; latent exposure to a fresh advisory |
+| 5. Post-install behavioural | `postinstall-audit.py` (what's already unpacked actually *does*) + `phone-home-monitor.ps1` (what it's *connecting to*) | A poisoned release that slipped past layers 1–2 and is now on disk / exfiltrating |
+| 6. **Repo-integrity** | `config-drift-check.py` (config-as-code injection in build configs / `tasks.json`) + branch-protection / signed-commits / hardware-key discipline (`references/repo-integrity.md`) | **Trusted-repo poisoning** (PolinRider / EtherHiding) — a build-config loader + backdated false-flag force-push that the dependency scanners never see |
+
+Layers 1–3 act before code runs; 4–5 assume something already got through and hunt
+for it on disk and on the wire. `exposure-check.py` answers "do I have a *named-bad*
+package?"; `postinstall-audit.py` answers "is *any* installed package *behaving* like
+malware?" — the unknown-bad case a fresh advisory hasn't caught up to yet.
+
+> **Layer 6 is a different axis, not a deeper layer.** Layers 1–5 all reason about
+> the **dependency tree** — Socket, depscore, the cooldown, `exposure-check.py`, and
+> `postinstall-audit.py` are *structurally blind* to a poisoned `vite.config.js` /
+> `tailwind.config.js` / `.vscode/tasks.json`, because that code never enters as a
+> package. The 2026 PolinRider / EtherHiding campaign (DPRK UNC5342) reached at least
+> one company via a clean dependency tree and a single shared deploy key. Layer 6 —
+> content-diffing first-party config files plus git-provenance discipline — is the
+> only thing that catches it. Workflow L and `references/repo-integrity.md`.
 
 ## Cost reality — free is enough to start
 
@@ -288,6 +326,89 @@ broader ecosystem + extension + MCP coverage), use Perplexity's **Bumblebee** �
 whose catalog format this borrows. It does not run on Windows; `exposure-check.py`
 is the cross-platform local equivalent. See `references/tooling-landscape.md`.
 
+### J. Outbound phone-home monitoring (Windows — the post-compromise tripwire)
+
+Layers 1–4 act at install time or at rest; nothing above watches what running code
+*does on the network*. `scripts/phone-home-monitor.ps1` closes that gap:
+
+```powershell
+pwsh -NoProfile -File scripts/phone-home-monitor.ps1            # one snapshot, exit 10 on findings
+pwsh -NoProfile -File scripts/phone-home-monitor.ps1 -Status    # which capture sources exist here?
+pwsh -NoProfile -File scripts/phone-home-monitor.ps1 -Watch -IntervalSeconds 30   # continuous, ring-buffer log
+pwsh -NoProfile -File scripts/phone-home-monitor.ps1 -InstallTask                 # logon daemon (T3 — confirm)
+```
+
+Flags: IOC endpoints (`assets/network-ioc.json` — webhook.site is the cited
+Shai-Hulud exfil drop), binaries under `node_modules`/Temp, children of package
+managers (lifecycle-script behaviour), interpreters hitting raw public IPs,
+unsigned userland binaries. **Tool-first:** the preferred continuous source is
+Sysmon Event ID 3 with the SwiftOnSecurity config (`-Sysmon` consumes it; exit 5
+with the install one-liner when absent); TCP-table polling is the zero-install
+default. Full evaluation (Sysmon vs WFP 5156 vs polling vs tshark), wiring, and
+triage playbook: `references/phone-home-monitoring.md`. A finding routes back into
+H/I: `integrity-audit.sh` + `exposure-check.py` + credential rotation.
+
+### K. Post-install behavioural sweep — "is anything already on disk misbehaving?"
+
+`exposure-check.py` (workflow I) answers the *known-bad* question; this answers the
+*unknown-bad* one. `scripts/postinstall-audit.py` walks installed `node_modules` and
+Python `site-packages` and flags what packages actually *do* — not what an advisory
+named:
+
+```bash
+python scripts/postinstall-audit.py --root ~/code              # exit 10 on a finding
+python scripts/postinstall-audit.py --root . --json | jq '.data.findings[]'
+python scripts/postinstall-audit.py --root . --deep            # GuardDog confirms each flag
+python scripts/postinstall-audit.py --root . --live            # is a flagged npm version still published?
+```
+
+It flags shell/downloader lifecycle scripts, credential-path reads paired with exfil
+endpoints, env harvesting, obfuscation, persistence writes, and files modified after
+install. Findings need a **two-signal combo** (cred+net, env+net) so real `node_modules`
+trees don't false-alarm — the lesson from an earlier cut that lit up `three.js`/`vite`
+on `eval`+base64 alone. An **incremental fingerprint cache** makes it daily-runnable
+(only changed trees rescan), so wire it as a scheduled task — see
+`references/postinstall-audit.md` for the Task Scheduler / Claude Code cron recipes and
+the GuardDog/OSV/Socket tool evaluation. A high finding is an incident: isolate → read
+the flagged file → rotate credentials → confirm with `--deep` + `exposure-check.py`.
+
+### L. Repo-integrity / config-drift — "is a repo I *own* being poisoned in place?"
+
+Workflows A–K all defend the **dependency tree** (or watch its network egress). This
+one defends a different surface: the **trusted-repo / config-as-code** class
+(PolinRider / EtherHiding, DPRK UNC5342), where the dependency tree stays clean and
+the payload is committed into your own build configs. The dependency scanners are
+structurally blind to it — see the Layer-6 note above and
+`references/threat-model.md` vector #12.
+
+`scripts/config-drift-check.py` is the on-disk detector. Run it two ways:
+
+```bash
+python scripts/config-drift-check.py --root .             # CI / full-repo sweep, exit 10 on finding
+python scripts/config-drift-check.py --staged             # pre-commit: only staged config files
+python scripts/config-drift-check.py --root . --json | jq '.data.findings[]'
+```
+
+It scans build configs (`vite/tailwind/webpack/next/rollup/postcss/svelte/astro.config.*`),
+`.vscode/tasks.json`, and `package.json` scripts for the Stage-2 injection signatures:
+blockchain explorer-API / RPC dead-drop endpoints (the EtherHiding payload read —
+`assets/network-ioc.json` `ETHERHIDING-BLOCKCHAIN-C2`), `eval` / `new Function` /
+shell-exec, Buffer-XOR decode loops, outbound network in a config that shouldn't have
+any, hex-var (`_0x..`) / long-escape obfuscation, an obfuscated appended blob, and
+`tasks.json` `runOn:folderOpen` auto-run. Zero-dependency, read-only.
+
+Wire it as a **pre-commit hook** (`--staged`, catches it before it's committed) **and**
+a **CI status check** (catches a force-pushed injection at the gate). A finding is an
+incident: read the flagged file, check the commit's **signature + server-side push
+timestamp** (a backdated author date lies; the push event doesn't), and rotate any
+credential the build could have touched.
+
+The detector is half the defense. The other half is **prevention + attribution** —
+no shared/standing keys, hardware-backed signing keys a RAT can't read, branch
+protection requiring **signed** commits and blocking force-push, server-side push-log
+as ground truth, build/env isolation, and VS Code Workspace Trust with auto-run tasks
+disabled. The full kill-chain-mapped playbook is `references/repo-integrity.md`.
+
 ## Hook setup — two checkpoints for the two ways a dep enters
 
 A dependency reaches a local machine two ways, and each gets an advisory hook:
@@ -344,7 +465,7 @@ Both read the tool call as JSON on stdin (`.tool_input`), falling back to `$1`.
 
 ## Scripts
 
-All four follow the Axiom Tool Protocol: `--help` with EXAMPLES, `--json` for
+All seven follow the Axiom Tool Protocol: `--help` with EXAMPLES, `--json` for
 machine-readable output, stdout = data / stderr = progress, semantic exit codes
 (0 ok, 2 usage, 3 not-found, 4 invalid, 5 missing-dep, 7 unavailable, **10 = signal
 found** — review items / inside-cooldown / exposed / behavioural finding).
@@ -365,15 +486,19 @@ interact" for the minimum viable set.
 | `scripts/integrity-audit.sh` | Scan AI-tool configs (Claude Code/Desktop, Gemini, MCP host JSON) + editor settings (VS Code, Cursor, Windsurf, VSCodium) for injected persistence hooks/MCP servers; flag workflows with live OIDC publish trust (uses `zizmor` if installed). Exit 10 if anything to review. | Read-only |
 | `scripts/preinstall-check.sh` | Given package specs, report registry publish age (npm/PyPI), flag any inside the cooldown window, route to `socket` if available. Exit 10 if any inside cooldown. | Read-only (queries registries) |
 | `scripts/exposure-check.py` | Match on-disk **npm (package-lock/pnpm/yarn) / PyPI / Composer / Cargo / Go / RubyGems** lockfiles **and installed editor extensions** against an IOC catalog (`assets/exposure-catalog.json`) — the "are we running a named-bad version/extension?" check. Supports a `*` wildcard for tag-rewrite attacks. Exit 10 if exposed. Catalog format borrowed from Bumblebee. | Read-only |
+| `scripts/phone-home-monitor.ps1` | **Windows outbound-connection tripwire** — map every outbound TCP connection to owning process + parent chain + signing status; flag IOC endpoints (`assets/network-ioc.json`), `node_modules`/Temp binaries, package-manager children, interpreter→raw-IP. Sources: Sysmon EID 3 (`-Sysmon`, preferred) or TCP-table polling (default). `-Watch`/`-InstallTask` for continuous capture with a ring-buffer JSONL log. Exit 10 on medium+ findings. | Read-only (except `-InstallTask`, which registers a logon scheduled task) |
+| `scripts/postinstall-audit.py` | **On-disk behavioural scan** — walks installed `node_modules` + Python `site-packages` under `--root` dirs and flags what already-unpacked packages *do*: shell/downloader lifecycle scripts, credential-path reads paired with exfil endpoints, env harvesting, obfuscation, persistence writes, files modified after install (tamper). Two-signal combos to avoid `node_modules` false-positives. Incremental per-package fingerprint cache (daily-runnable); `--deep` confirms flags with GuardDog; `--live` checks the registry still serves a flagged npm version (unpublished = IOC). Exit 10 on findings ≥ `--min-severity`, 7 if `--live` registry unreachable. See `references/postinstall-audit.md`. | Read-only |
+| `scripts/config-drift-check.py` | **Repo-integrity / config-as-code scanner** (layer 6) — scans build configs (`vite/tailwind/webpack/next/rollup/postcss/svelte/astro.config.*`), `.vscode/tasks.json`, and `package.json` scripts for PolinRider/EtherHiding injection: blockchain explorer-API / RPC dead-drop endpoints (extends from `assets/network-ioc.json`), `eval`/`new Function`/shell-exec, Buffer-XOR decode loops, outbound network in a config, `_0x..`/long-escape obfuscation, an obfuscated appended blob, and `tasks.json` `runOn:folderOpen` auto-run. `--staged` for pre-commit, `--root` for CI. Exit 10 on a finding. Zero-dep. See `references/repo-integrity.md`. | Read-only |
 | `scripts/scan-extensions.sh` | **Unknown-bad** triage of installed editor extensions / Claude plugins / skills. Default = zero-dep **inventory + recency** (no false positives). `--deep` auto-detects `guarddog`+`semgrep`: runs the behavioural scan if present (exit 10 on a finding), else runs inventory only and *loudly recommends* the on-demand install — never a false-clean. | Read-only |
 
 ```bash
 scripts/integrity-audit.sh --json | jq '.data.review[]'
 scripts/preinstall-check.sh --pip requests fastapi@0.110.0 --json | jq '.data[] | select(.inside_cooldown)'
+pwsh -NoProfile -File scripts/phone-home-monitor.ps1 -Json | jq '.data.findings[]'
 ```
 
-`tests/run.sh` is an offline-deterministic self-test (18 assertions) covering all
-three scripts + the hook against crafted fixtures — run it after any edit:
+`tests/run.sh` is an offline-deterministic self-test (107 assertions) covering all
+seven scripts + the hooks against crafted fixtures — run it after any edit:
 `bash tests/run.sh` (exit 0 = all pass).
 
 ## Reference files
@@ -383,6 +508,9 @@ three scripts + the hook against crafted fixtures — run it after any edit:
 | `references/threat-model.md` | 2026 timeline (axios, Shai-Hulud, durabletask, Nx, GitHub breach), worm mechanics, IOCs, and why each legacy control failed |
 | `references/socket-cli.md` | Accurate Socket CLI + depscore MCP command surface, free-vs-paid table, Claude Code setup, source links, briefing corrections |
 | `references/tooling-landscape.md` | The wider (mostly free/OSS) defender ecosystem — GuardDog, OSV-Scanner, zizmor, Harden-Runner, lockfile-lint, `ignore-scripts` — mapped to the four layers, with a when-to-use-which matrix |
+| `references/phone-home-monitoring.md` | Outbound-monitoring tooling evaluation (Sysmon EID 3 + SwiftOnSecurity config vs WFP 5156 vs TCP-table polling vs tshark), Sysmon wiring, the monitor's rule/severity table, daemon tiers, triage playbook, honest limitations |
+| `references/postinstall-audit.md` | On-disk behavioural scan rationale — the post-install gap, the finding/severity table, the false-positive lesson (combos not singletons), incremental cache, `--deep`/`--live` modes, GuardDog/OSV/Socket tool evaluation, daily scheduling (Task Scheduler + Claude Code cron), incident response |
+| `references/repo-integrity.md` | **Repo-integrity / config-as-code defense** (PolinRider / EtherHiding) — the kill-chain-mapped playbook for trusted-repo poisoning: no shared/standing keys, hardware-backed signing keys, branch protection requiring signed commits + no force-push (why signing defeats the backdated false-flag), server-side push-log as ground truth, build/env isolation, VS Code Workspace Trust, and the `config-drift-check.py` pre-commit + CI gate |
 | `references/hardening-checklist.md` | Step-by-step OIDC audit, token rotation, dep cooldown policy, extension audit, persistence detection, client-proposal language |
 
 ## See also

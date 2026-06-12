@@ -39,6 +39,15 @@ def die(msg, code) -> NoReturn:
     sys.exit(code)
 
 
+def read_text_tolerant(path: Path) -> str:
+    # Lockfiles/manifests written by PowerShell `>` redirects arrive UTF-16 with
+    # a BOM; a strict utf-8 read aborts the whole sweep on the first such file.
+    raw = path.read_bytes()
+    if raw[:2] in (b"\xff\xfe", b"\xfe\xff"):
+        return raw.decode("utf-16", errors="replace")
+    return raw.decode("utf-8-sig", errors="replace")
+
+
 def load_catalog(path: Path):
     files = []
     if path.is_dir():
@@ -88,7 +97,7 @@ def add(components, ecosystem, name, version, source):
 
 def parse_npm_lock(path: Path, components):
     try:
-        doc = json.loads(path.read_text(encoding="utf-8"))
+        doc = json.loads(read_text_tolerant(path))
     except (json.JSONDecodeError, OSError):
         return
     # lockfileVersion 2/3: packages{} keyed by "node_modules/<name>"
@@ -162,7 +171,7 @@ REQ_RE = re.compile(r"^\s*([A-Za-z0-9_.\-]+)\s*==\s*([A-Za-z0-9_.\-]+)")
 
 def parse_requirements(path: Path, components):
     try:
-        for line in path.read_text(encoding="utf-8").splitlines():
+        for line in read_text_tolerant(path).splitlines():
             m = REQ_RE.match(line)
             if m:
                 add(components, "pypi", m.group(1), m.group(2), path)
@@ -187,7 +196,7 @@ def parse_dist_info(path: Path, components):  # *.dist-info/METADATA
 
 def parse_composer_lock(path: Path, components):  # composer.lock (JSON)
     try:
-        doc = json.loads(path.read_text(encoding="utf-8"))
+        doc = json.loads(read_text_tolerant(path))
     except (json.JSONDecodeError, OSError):
         return
     for key in ("packages", "packages-dev"):
@@ -201,7 +210,7 @@ def parse_cargo_lock(path: Path, components):  # Cargo.lock (TOML; needs py3.11+
     except ImportError:
         return  # tomllib is 3.11+; skip Cargo on older pythons
     try:
-        doc = tomllib.loads(path.read_text(encoding="utf-8"))
+        doc = tomllib.loads(read_text_tolerant(path))
     except Exception:  # OSError or tomllib.TOMLDecodeError
         return
     for pkg in doc.get("package", []):

@@ -38,6 +38,29 @@ jobs:
           if [ "$rc" -eq 7 ]; then echo "::warning::model-table live check unavailable (no key / unreachable) — skipped"; fi
           exit 0
 
+      - name: ffmpeg-ops docs vs an installed ffmpeg
+        run: |
+          set +e
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          bash skills/ffmpeg-ops/scripts/verify-commands.sh --live
+          rc=$?
+          if [ "$rc" -eq 10 ]; then echo "::error::ffmpeg-ops docs drifted from current ffmpeg (renamed/removed filter or option)"; exit 1; fi
+          if [ "$rc" -eq 7 ]; then echo "::warning::ffmpeg unavailable on runner — live check skipped"; fi
+          exit 0
+
+      - name: ytdlp-ops version age + extractor smoke test
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set +e
+          # Runner constraint: GH-hosted images lack uv; locally prefer `uv tool install yt-dlp`.
+          python -m pip install --quiet yt-dlp
+          bash skills/ytdlp-ops/scripts/check-ytdlp-version.sh --live
+          rc=$?
+          if [ "$rc" -eq 10 ]; then echo "::error::ytdlp-ops: yt-dlp >60 days behind latest release or smoke extraction failed (extractor drift)"; exit 1; fi
+          if [ "$rc" -eq 7 ]; then echo "::warning::ytdlp-ops live check unavailable (network/API/yt-dlp) — skipped"; fi
+          exit 0
+
       - name: GitHub Action refs still resolve
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

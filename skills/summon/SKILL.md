@@ -85,11 +85,11 @@ Output follows the [Terminal Panel Design System](../../docs/TERMINAL-DESIGN.md)
 │
 ├── 4 sessions · from 1 account · last 3d
 │
-├── mack@evolution7.com.au (4)
-│   ├── X:\Forge\Axiom (2)
+├── dev@example.com (4)
+│   ├── X:\Projects\Axiom (2)
 │   │   ├──  1. train-fasttext                    30t            16h
 │   │   └──  2. make-doom-for-mips                64t            16h
-│   └── X:\Forma\00_workspaces\evolution7 (2)
+│   └── X:\Work\client-site (2)
 │       ├──  3. timekeeper                        35t            16h
 │       └──  4. agency-os                         17t            16h
 │

@@ -292,13 +292,13 @@ Scenario: your colleague's PC across town is crashing. They give you Administrat
 
 ```powershell
 # 1. Verify connectivity
-$target = 'COLLEAGUE-PC.evolution7.local'
+$target = 'COLLEAGUE-PC.corp.local'
 Test-WSMan -ComputerName $target
 # Expect: wsmid + ProductVendor lines
 
 # 2. Auth
 $cred = Get-Credential -Message "Admin on $target"
-# Type: evolution7\admin   (domain) or COLLEAGUE-PC\admin (local)
+# Type: CORP\admin   (domain) or COLLEAGUE-PC\admin (local)
 
 # 3. Stage the skill on target
 $s = New-PSSession -ComputerName $target -Credential $cred

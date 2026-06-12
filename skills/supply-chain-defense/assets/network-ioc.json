@@ -1,0 +1,61 @@
+{
+  "schema_version": "v0.1.0",
+  "_comment": "Network IOC catalog for phone-home-monitor.ps1. Entries match outbound destinations: 'domains' are suffix-matched against the destination hostname (DNS cache / Sysmon DestinationHostname); 'ips' are exact-matched against the destination IP. Extend from advisories as incidents break — same discipline as exposure-catalog.json. Anonymous request-capture services are listed because credential stealers use them as zero-setup exfil endpoints; if a legitimate workflow on this machine uses one, remove it here or expect (correct) findings.",
+  "entries": [
+    {
+      "id": "SHAI-HULUD-EXFIL",
+      "name": "Shai-Hulud worm exfil endpoint",
+      "severity": "critical",
+      "citation": "Shai-Hulud npm worm (Sept 2025 wave) exfiltrated stolen credentials to attacker-created webhook.site URLs; widely documented in vendor analyses of the campaign.",
+      "domains": ["webhook.site"],
+      "ips": []
+    },
+    {
+      "id": "ANON-EXFIL-SERVICES",
+      "name": "Anonymous request-capture / OOB-interaction services",
+      "severity": "high",
+      "citation": "Zero-setup HTTP capture endpoints (legitimate testing tools) routinely abused by stealers as exfil drops. A developer workstation initiating connections to these unprompted is a strong signal.",
+      "domains": [
+        "requestbin.com",
+        "pipedream.net",
+        "oastify.com",
+        "oast.fun",
+        "interact.sh",
+        "burpcollaborator.net",
+        "canarytokens.com"
+      ],
+      "ips": []
+    },
+    {
+      "id": "ETHERHIDING-BLOCKCHAIN-C2",
+      "name": "EtherHiding blockchain-C2 dead-drop (explorer APIs + public RPC)",
+      "severity": "high",
+      "category": "blockchain-c2",
+      "citation": "PolinRider / EtherHiding (DPRK UNC5342 / Lazarus-aligned). Google GTIG documented UNC5342 reading XOR/Base64 payloads from BNB Smart Chain + Ethereum smart contracts via centralized blockchain EXPLORER APIs (Ethplorer, Blockchair, Blockcypher, Binplorer) using read-only eth_call (no on-chain transaction, no gas). The campaign and copycats also read from public RPC nodes (TronGrid, BSC dataseed, Aptos fullnodes, Cloudflare/Ankr/Infura ETH). https://cloud.google.com/blog/topics/threat-intelligence/dprk-adopts-etherhiding . NOTE: these hosts are dual-use — legitimate on a genuine web3/dApp project. An outbound connection from a BUILD process (node_modules child, vite/webpack), or on a project that is not web3, is the signal. Also consumed by config-drift-check.py (the build-config dead-drop check) in addition to phone-home-monitor.ps1.",
+      "domains": [
+        "api.ethplorer.io",
+        "ethplorer.io",
+        "api.blockchair.com",
+        "blockchair.com",
+        "api.blockcypher.com",
+        "blockcypher.com",
+        "binplorer.com",
+        "api.trongrid.io",
+        "trongrid.io",
+        "apilist.tronscanapi.com",
+        "bsc-dataseed.bnbchain.org",
+        "bsc-dataseed.binance.org",
+        "bsc-dataseed1.binance.org",
+        "bsc-dataseed1.bnbchain.org",
+        "api.bscscan.com",
+        "fullnode.mainnet.aptoslabs.com",
+        "api.mainnet.aptoslabs.com",
+        "cloudflare-eth.com",
+        "eth.llamarpc.com",
+        "rpc.ankr.com",
+        "mainnet.infura.io"
+      ],
+      "ips": []
+    }
+  ]
+}
