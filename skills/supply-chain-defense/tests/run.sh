@@ -266,7 +266,11 @@ fi
 # ── phone-home-monitor.ps1 (offline replay + contract) ─────────────────────
 echo "-- phone-home-monitor.ps1 --"
 PHM="$SCRIPTS/phone-home-monitor.ps1"
-if command -v pwsh >/dev/null 2>&1; then
+# Windows-only Sysmon monitor — gate on Windows, not just pwsh presence:
+# GitHub ubuntu runners ship pwsh, where this Windows-EventLog script crashes
+# at load. Validated on Windows (Git Bash / MSYS / Cygwin), skipped elsewhere.
+case "$(uname -s 2>/dev/null)" in MINGW*|MSYS*|CYGWIN*) _PHM_WIN=1 ;; *) _PHM_WIN=0 ;; esac
+if command -v pwsh >/dev/null 2>&1 && [[ "$_PHM_WIN" == 1 ]]; then
   PHMW="$PHM"
   command -v cygpath >/dev/null 2>&1 && PHMW="$(cygpath -w "$PHM")"
   out="$(pwsh -NoProfile -File "$PHMW" --help 2>&1)"; rc=$?
@@ -308,7 +312,7 @@ JSONF
     expect_has  "hint names SwiftOnSecurity config" "SwiftOnSecurity" "$out"
   fi
 else
-  echo "  SKIP  pwsh not found (Windows-only script)"
+  echo "  SKIP  phone-home-monitor.ps1 needs pwsh on Windows (Sysmon/Event-Log tool)"
 fi
 
 # ── postinstall-audit.py (on-disk behavioural scan, incremental cache) ─────
