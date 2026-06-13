@@ -7,7 +7,11 @@ feature releases live in the README "Recent Updates" section.
 
 ## [Unreleased]
 
-### Added
+_Nothing yet._
+
+## [3.0.0] - 2026-06-10
+
+### Added (media stack)
 - **`ytdlp-ops` skill** - yt-dlp as the media ACQUISITION layer feeding
   ffmpeg-ops: format selection doctrine (`-S` sort over `-f` filters, codec
   targeting that avoids post-download transcodes), `--download-sections`
@@ -61,7 +65,7 @@ feature releases live in the README "Recent Updates" section.
   maps). 19 references, 3 assets, 107-assertion self-test with
   lavfi-synthesized fixtures (no binary fixtures in repo).
 
-### Fixed
+### Fixed (media stack)
 - **`ffmpeg-ops/cut-from-edl.py`** (found by real-media E2E):
   the output directory was created *after* ffmpeg opened the temp output, so
   any `-o` into a not-yet-existing directory died with a cryptic
@@ -71,7 +75,6 @@ feature releases live in the README "Recent Updates" section.
   own `output` field stays EDL-relative per the schema), and the destination
   dir is created before the concat runs.
 
-## [3.0.0] - 2026-06-10
 
 ### Added (skill resource protocol)
 - **`docs/SKILL-RESOURCE-PROTOCOL.md`** - the build standard for skill `scripts/`,
