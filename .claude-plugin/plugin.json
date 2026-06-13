@@ -7,14 +7,22 @@
     "name": "0xDarkMatter"
   },
   "repository": "https://github.com/0xDarkMatter/claude-mods",
+  "homepage": "https://github.com/0xDarkMatter/claude-mods#readme",
   "license": "MIT",
   "keywords": [
     "claude-code",
+    "plugin",
     "agents",
     "commands",
     "skills",
+    "hooks",
+    "rules",
     "session-management",
     "cli-tools",
-    "output-styles"
+    "output-styles",
+    "supply-chain-security",
+    "prompt-injection-defense",
+    "devops",
+    "testing"
   ]
 }
