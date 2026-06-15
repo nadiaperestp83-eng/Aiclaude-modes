@@ -7,7 +7,17 @@ feature releases live in the README "Recent Updates" section.
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+- **`adr-ops` skill** - Architecture Decision Records as a cross-project workflow,
+  generalized from a mature in-house ADR protocol: when-to-write / when-NOT
+  decision rule, the canonical format (BLUF-first `## Decision`, fixed section
+  order, frontmatter field set), the proposed→accepted→superseded/deprecated
+  lifecycle, and append-only supersession discipline. Ships three tools to the
+  Skill Resource Protocol - `adr-new.sh` (scaffold the next sequential ADR,
+  atomic, no-clobber, `--apply-supersede` flips the old record), `adr-index.sh`
+  (read-only index table from frontmatter), and `adr-lint.py` (validates required
+  fields, status enum, numbering, section order, and cross-file supersession
+  bidirectionality). 36-assertion offline self-test.
 
 ## [3.0.0] - 2026-06-10
 
