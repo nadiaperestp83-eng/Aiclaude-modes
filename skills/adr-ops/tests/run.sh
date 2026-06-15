@@ -17,6 +17,8 @@ SCRIPTS="$SKILL/scripts"
 NEW="$SCRIPTS/adr-new.sh"
 INDEX="$SCRIPTS/adr-index.sh"
 LINT="$SCRIPTS/adr-lint.py"
+TOUCHING="$SCRIPTS/adr-touching.py"
+INIT="$SCRIPTS/adr-init.sh"
 
 # Pick a python that actually executes — skips the Windows Store `python3` stub.
 PYTHON=""
@@ -85,6 +87,8 @@ echo "-- --help --"
 bash "$NEW"   --help >/dev/null 2>&1; expect_exit "adr-new --help" 0 $?
 bash "$INDEX" --help >/dev/null 2>&1; expect_exit "adr-index --help" 0 $?
 "$PYTHON" "$LINT" --help >/dev/null 2>&1; expect_exit "adr-lint --help" 0 $?
+"$PYTHON" "$TOUCHING" --help >/dev/null 2>&1; expect_exit "adr-touching --help" 0 $?
+bash "$INIT" --help >/dev/null 2>&1; expect_exit "adr-init --help" 0 $?
 
 # ── adr-lint.py: clean conformant pair -> 0 ────────────────────────────────
 echo "-- adr-lint: clean --"
@@ -219,6 +223,140 @@ expect_has "row carries status" "accepted" "$out"
 bash "$INDEX" --dir "$SB/no-such-dir" >/dev/null 2>&1; expect_exit "missing dir -> 3" 3 $?
 out="$(bash "$INDEX" --dir "$CLEAN" --json 2>/dev/null)"
 expect_has "json envelope schema" "claude-mods.adr-ops.index/v1" "$out"
+
+# ── adr-lint.py: lifecycle consistency checks ──────────────────────────────
+echo "-- adr-lint: lifecycle --"
+# superseded with empty superseded-by -> error -> 10
+LCS="$SB/lc-sup-empty"; mkdir -p "$LCS"
+make_adr "$LCS" 001 a superseded 2026-01-01 "[]" "[]"
+out="$("$PYTHON" "$LINT" --dir "$LCS" 2>&1)"; rc=$?
+expect_exit "superseded w/ empty superseded-by -> 10" 10 "$rc"
+expect_has  "names the lifecycle error" "must name its successor" "$out"
+
+# deprecated with non-empty superseded-by -> error -> 10
+LCD="$SB/lc-dep"; mkdir -p "$LCD"
+make_adr "$LCD" 001 a deprecated 2026-01-01 "[]" "[ADR-002]"
+make_adr "$LCD" 002 b accepted   2026-01-02 "[]" "[]"
+out="$("$PYTHON" "$LINT" --dir "$LCD" 2>&1)"; rc=$?
+expect_exit "deprecated w/ superseded-by -> 10" 10 "$rc"
+expect_has  "names the deprecated error" "nothing replaces it" "$out"
+
+# accepted (in force) with superseded-by -> error -> 10. Pair it with a valid
+# back-reference so ONLY the lifecycle error fires (no bidirectionality noise),
+# proving the two checks don't double-report.
+LCA="$SB/lc-accepted"; mkdir -p "$LCA"
+make_adr "$LCA" 001 a accepted 2026-01-01 "[]"          "[ADR-002]"
+make_adr "$LCA" 002 b accepted 2026-01-02 "[ADR-001]"   "[]"
+out="$("$PYTHON" "$LINT" --dir "$LCA" 2>&1)"; rc=$?
+expect_exit "accepted w/ superseded-by -> 10" 10 "$rc"
+expect_has  "names the in-force error" "in force" "$out"
+
+# ── adr-lint.py: stale touches: warning ────────────────────────────────────
+echo "-- adr-lint: stale touches --"
+# An ADR whose touches: lists a literal path absent under --repo-root. Warning
+# tier: exit 0 normally, exit 10 under --strict. (make_adr writes touches src/x.py;
+# the sandbox repo-root has no such file, so it's stale by construction.)
+STALE="$SB/stale"; mkdir -p "$STALE"
+make_adr "$STALE" 001 a accepted 2026-01-01 "[]" "[]"
+out="$("$PYTHON" "$LINT" --dir "$STALE" --repo-root "$SB" 2>&1)"; rc=$?
+expect_exit "stale touches normally -> 0" 0 "$rc"
+expect_has  "warns on stale touches path" "no longer exists" "$out"
+"$PYTHON" "$LINT" --dir "$STALE" --repo-root "$SB" --strict >/dev/null 2>&1
+expect_exit "stale touches --strict -> 10" 10 $?
+# When the path DOES exist under repo-root, no stale warning.
+mkdir -p "$STALE/repo/src"; : > "$STALE/repo/src/x.py"
+out="$("$PYTHON" "$LINT" --dir "$STALE" --repo-root "$STALE/repo" 2>&1)"
+case "$out" in *"no longer exists"*) no "existing touches path still flagged";; *) ok "existing touches path not flagged";; esac
+
+# ── adr-touching.py: exact / prefix / glob / config-key / no-match ──────────
+echo "-- adr-touching --"
+TCH="$SB/touching"; mkdir -p "$TCH"
+cat > "$TCH/ADR-001-auth.md" <<'EOF'
+---
+status: accepted
+date: 2026-01-01
+supersedes: []
+superseded-by: []
+touches:
+  - "src/auth.py"
+  - "lib/**"
+  - "config.yaml:db.host"
+---
+
+# ADR-001: Auth Title
+
+## Decision (one sentence)
+
+Rule.
+
+## Context
+C.
+
+## Alternatives considered
+A.
+
+## Consequences
+### Positive
+- G.
+
+## See also
+- x
+EOF
+
+# exact match -> 10, names the ADR
+out="$("$PYTHON" "$TOUCHING" --dir "$TCH" src/auth.py 2>/dev/null)"; rc=$?
+expect_exit "touching exact match -> 10" 10 "$rc"
+expect_has  "touching names the ADR" "ADR-001" "$out"
+# prefix query (dir governs file) -> 10
+"$PYTHON" "$TOUCHING" --dir "$TCH" src/ >/dev/null 2>&1; expect_exit "touching prefix query -> 10" 10 $?
+# glob query matches a literal touches entry -> 10
+"$PYTHON" "$TOUCHING" --dir "$TCH" 'src/*.py' >/dev/null 2>&1; expect_exit "touching glob query -> 10" 10 $?
+# touches glob matches a concrete query path -> 10
+"$PYTHON" "$TOUCHING" --dir "$TCH" lib/deep/thing.go >/dev/null 2>&1; expect_exit "touching matched by touches-glob -> 10" 10 $?
+# config-key exact -> 10
+"$PYTHON" "$TOUCHING" --dir "$TCH" config.yaml:db.host >/dev/null 2>&1; expect_exit "touching config-key -> 10" 10 $?
+# no governing ADR -> 0
+"$PYTHON" "$TOUCHING" --dir "$TCH" other/unrelated.txt >/dev/null 2>&1; expect_exit "touching no match -> 0" 0 $?
+# dir not found -> 3
+"$PYTHON" "$TOUCHING" --dir "$SB/no-such-dir" src/auth.py >/dev/null 2>&1; expect_exit "touching missing dir -> 3" 3 $?
+# missing query -> 2
+"$PYTHON" "$TOUCHING" --dir "$TCH" >/dev/null 2>&1; expect_exit "touching missing query -> 2" 2 $?
+# --json envelope schema
+out="$("$PYTHON" "$TOUCHING" --dir "$TCH" --json src/auth.py 2>/dev/null)"
+expect_has "touching json envelope schema" "claude-mods.adr-ops.touching/v1" "$out"
+
+# ── adr-init.sh: bootstrap, refuse populated, dry-run ──────────────────────
+echo "-- adr-init --"
+INITD="$SB/init"
+bash "$INIT" --dir "$INITD/docs/adr" --first-title "Adopt ADRs" >/dev/null 2>&1
+expect_exit "adr-init -> 0" 0 $?
+[[ -f "$INITD/docs/adr/ADR-001-adopt-adrs.md" ]] && ok "init scaffolded ADR-001" || no "init did not scaffold ADR-001"
+[[ -f "$INITD/docs/adr/README.md" ]] && ok "init wrote README.md" || no "init did not write README.md"
+case "$(cat "$INITD/docs/adr/README.md" 2>/dev/null)" in
+  *"generated by adr-init.sh"*) ok "init README carries generated marker";;
+  *) no "init README missing generated marker";;
+esac
+# the scaffolded ADR-001 lints clean (repo-root = init root; touches paths are template placeholders -> warnings only, exit 0)
+"$PYTHON" "$LINT" --dir "$INITD/docs/adr" --repo-root "$INITD" >/dev/null 2>&1
+expect_exit "init ADR-001 lints clean -> 0" 0 $?
+# refuses a populated dir -> 5
+bash "$INIT" --dir "$INITD/docs/adr" >/dev/null 2>&1; expect_exit "init refuses populated dir -> 5" 5 $?
+# --dry-run writes nothing into a fresh location
+DRYI="$SB/init-dry"
+bash "$INIT" --dir "$DRYI/docs/adr" --dry-run >/dev/null 2>&1; expect_exit "init dry-run -> 0" 0 $?
+[[ -e "$DRYI" ]] && no "init dry-run created files" || ok "init dry-run wrote nothing"
+
+# ── adr-index.sh: --output generated file ──────────────────────────────────
+echo "-- adr-index --output --"
+OUTF="$SB/index-out.md"
+bash "$INDEX" --dir "$CLEAN" --output "$OUTF" >/dev/null 2>&1; expect_exit "adr-index --output -> 0" 0 $?
+[[ -f "$OUTF" ]] && ok "--output wrote a file" || no "--output wrote no file"
+outc="$(cat "$OUTF" 2>/dev/null)"
+expect_has "--output has the table header" "| # | Status | Date | Title |" "$outc"
+expect_has "--output carries the generated marker" "do not hand-edit" "$outc"
+expect_has "--output lists a row" "ADR-001" "$outc"
+# --json + --output is a usage error -> 2
+bash "$INDEX" --dir "$CLEAN" --json --output "$SB/x.md" >/dev/null 2>&1; expect_exit "index --json+--output -> 2" 2 $?
 
 # ── summary ────────────────────────────────────────────────────────────────
 echo "=== $PASS passed, $FAIL failed ==="

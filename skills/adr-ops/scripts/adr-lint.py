@@ -7,12 +7,17 @@ filename, the BLUF `## Decision (one sentence)` right after the title, the fixed
 core section order, no duplicate numbers, and — the high-value cross-file check —
 supersession bidirectionality.
 
-Usage:   adr-lint.py [--dir DIR] [--strict] [--json]
+Usage:   adr-lint.py [--dir DIR] [--repo-root DIR] [--strict] [--json]
 Input:   argv flags only (no stdin).
 Output:  stdout = findings (plain table, or --json envelope). Data only.
 Stderr:  headers, the yq/PyYAML fallback notice, errors.
 Exit:    0 conformant, 2 usage, 3 dir not found, 4 a file's frontmatter
          unparseable, 10 findings present (errors; or warnings too under --strict)
+
+Beyond format/order/duplicate/supersession-bidirectionality, also checks:
+lifecycle consistency (status vs superseded-by), and — when a touches: entry is a
+literal filesystem path — whether it still resolves under --repo-root (a stale
+discovery surface), reported as a warning.
 
 Prefers PyYAML for frontmatter; falls back to a minimal parser when it is absent
 (announced on stderr). The supersession cross-check is the one most worth running.
@@ -37,12 +42,15 @@ EX_UNPARSEABLE = 4
 EX_FINDINGS = 10
 
 VALID_STATUS = {"proposed", "accepted", "superseded", "deprecated"}
+IN_FORCE_STATUS = {"proposed", "accepted"}
 LIST_FIELDS = ("supersedes", "superseded-by")
 REQUIRED_FIELDS = ("status", "date", "supersedes", "superseded-by", "touches")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 ADR_ID_RE = re.compile(r"^ADR-\d+$")
 FILENAME_RE = re.compile(r"^ADR-(\d+)-.+\.md$")
 TITLE_RE = re.compile(r"^# ADR-(\d+):\s+\S")
+GLOB_CHARS_RE = re.compile(r"[*?\[]")
+EXT_RE = re.compile(r"\.[A-Za-z0-9]{1,8}$")
 CORE_SECTIONS = [
     "## Decision",  # may be "## Decision (one sentence)"
     "## Context",
@@ -142,6 +150,23 @@ def as_list(value) -> list | None:
     return None
 
 
+def is_literal_path(entry: str) -> bool:
+    """True if a touches: entry is a literal filesystem path we can check on disk.
+
+    A literal path contains a '/' or a file extension; is NOT a glob (no * ? [);
+    and is NOT a config-key (no `file:key` colon segment — but a Windows drive
+    letter `C:` at position 1 doesn't count as a marker).
+    """
+    s = entry.strip()
+    if not s:
+        return False
+    if GLOB_CHARS_RE.search(s):
+        return False
+    if s.find(":") > 1:  # config-key marker (drive letters live at index 1)
+        return False
+    return ("/" in s) or bool(EXT_RE.search(s))
+
+
 def find_title(body: str):
     """Return (line_number_in_body, match) for the first ADR title, or (None, None)."""
     for idx, line in enumerate(body.splitlines()):
@@ -165,7 +190,7 @@ def section_sequence(body: str) -> list[str]:
     return seen
 
 
-def lint_dir(adr_dir: Path) -> tuple[list[dict], bool]:
+def lint_dir(adr_dir: Path, repo_root: Path | None = None) -> tuple[list[dict], bool]:
     """Return (findings, any_unparseable)."""
     findings: list[dict] = []
     any_unparseable = False
@@ -276,6 +301,48 @@ def lint_dir(adr_dir: Path) -> tuple[list[dict], bool]:
                 f"core sections out of order: {observed} (expected {expected_order})",
             )
 
+        # ── lifecycle consistency (status vs superseded-by) ──
+        # Complements the bidirectionality cross-check below: these are local,
+        # single-record contradictions and never double-report with it.
+        superseded_by_here = as_list(fm.get("superseded-by")) or []
+        has_successor = len(superseded_by_here) > 0
+        if status == "superseded" and not has_successor:
+            add(
+                name,
+                "error",
+                "status is 'superseded' but superseded-by is empty "
+                "(a superseded ADR must name its successor in superseded-by)",
+            )
+        elif status == "deprecated" and has_successor:
+            add(
+                name,
+                "error",
+                "status is 'deprecated' but superseded-by is non-empty "
+                "(deprecated means nothing replaces it; if something does, use 'superseded')",
+            )
+        elif status in IN_FORCE_STATUS and has_successor:
+            add(
+                name,
+                "error",
+                f"status is '{status}' (in force) but superseded-by is non-empty "
+                "(an in-force ADR cannot list a superseded-by)",
+            )
+
+        # ── stale touches: a literal path that no longer exists (warning) ──
+        if repo_root is not None:
+            touches_here = as_list(fm.get("touches")) or []
+            for entry in touches_here:
+                if not isinstance(entry, str) or not is_literal_path(entry):
+                    continue
+                target = (repo_root / entry).resolve()
+                if not target.exists():
+                    add(
+                        name,
+                        "warning",
+                        f"touches path no longer exists: {entry} "
+                        "(discovery surface may be stale)",
+                    )
+
     # ── duplicate numbers (error) / gaps (warning) ──
     for num, names in sorted(by_number.items()):
         if len(names) > 1:
@@ -340,6 +407,32 @@ def lint_dir(adr_dir: Path) -> tuple[list[dict], bool]:
     return findings, any_unparseable
 
 
+def resolve_repo_root(explicit: str | None) -> Path | None:
+    """Resolve the repo root for touches-path checks.
+
+    Explicit --repo-root wins (must be a directory). Otherwise try `git
+    rev-parse --show-toplevel`; fall back to cwd. Returns None only if an
+    explicit path was given but is not a directory (caller treats as usage).
+    """
+    if explicit is not None:
+        p = Path(explicit)
+        return p if p.is_dir() else None
+    import subprocess  # local: only needed when no explicit root
+
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if out.returncode == 0 and out.stdout.strip():
+            return Path(out.stdout.strip())
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return Path.cwd()
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="adr-lint.py",
@@ -347,6 +440,12 @@ def main(argv: list[str]) -> int:
         add_help=True,
     )
     parser.add_argument("--dir", default="docs/adr", help="ADR directory (default: docs/adr)")
+    parser.add_argument(
+        "--repo-root",
+        default=None,
+        help="repo root for resolving literal touches: paths "
+        "(default: git toplevel if in a git repo, else cwd)",
+    )
     parser.add_argument(
         "--strict", action="store_true", help="count warnings toward the exit-10 signal"
     )
@@ -365,7 +464,12 @@ def main(argv: list[str]) -> int:
         print(f"error: ADR directory not found: {adr_dir}", file=sys.stderr)
         return EX_NOTFOUND
 
-    findings, any_unparseable = lint_dir(adr_dir)
+    repo_root = resolve_repo_root(args.repo_root)
+    if args.repo_root is not None and repo_root is None:
+        print(f"error: --repo-root is not a directory: {args.repo_root}", file=sys.stderr)
+        return EX_USAGE
+
+    findings, any_unparseable = lint_dir(adr_dir, repo_root)
 
     errors = [f for f in findings if f["severity"] == "error"]
     warnings = [f for f in findings if f["severity"] == "warning"]

@@ -154,13 +154,34 @@ Three change modes (full detail in `references/lifecycle-and-supersession.md`):
 6. **Commit** with a `docs(adr):` conventional-commit subject, e.g.
    `docs(adr): ADR-020 — <subject>`.
 
+Adopting ADRs in a fresh repo? Run `bash scripts/adr-init.sh --first-title "…"` once to
+bootstrap the directory + a lint-clean ADR-001. Before changing an existing subsystem, run
+`python scripts/adr-touching.py <path>` to surface any decision already governing it.
+
 ---
 
 ## Tools
 
 All scripts take `--dir` (default `docs/adr`), `--help`, and follow semantic exit codes
-(`0` ok, `2` usage, `3` not-found, `5` precondition, `10` findings). Pair with the
-`git-ops` skill for the commit/PR step.
+(`0` ok, `2` usage, `3` not-found, `5` precondition, `10` findings/domain-signal). Pair
+with the `git-ops` skill for the commit/PR step. The three read tools form the legs of a
+stool: **lint** = integrity, **index** = overview, **touching** = "what governs this file
+before I change it".
+
+### `scripts/adr-init.sh` — bootstrap a repo adopting ADRs cold
+
+```bash
+# Create docs/adr/, scaffold a lint-clean ADR-001, write a generated README:
+bash scripts/adr-init.sh --first-title "Adopt ADRs"
+
+# Custom dir + preview without writing:
+bash scripts/adr-init.sh --dir docs/decisions --first-title "OAuth-only auth" --dry-run
+```
+
+Refuses to run in a directory that already holds `ADR-*.md` (exit 5) unless `--force`. The
+ADR-001 it scaffolds is rendered by `adr-new.sh`, so it lints clean immediately. The
+generated `<dir>/README.md` is self-labeled "generated — do not hand-edit; the directory
+is the index" and says to run `adr-index` to regenerate. `--dry-run` writes nothing.
 
 ### `scripts/adr-new.sh` — scaffold the next ADR
 
@@ -188,6 +209,32 @@ bash scripts/adr-index.sh --json | jq '.data[] | select(.status=="accepted")'
 ```
 
 Prefers `yq`; degrades to a built-in parser when yq is absent (announced on stderr).
+Pass `--output FILE` to write a **generated Markdown index** (heading + a `do not
+hand-edit` marker + the `| # | Status | Date | Title |` table) atomically to a file
+instead of stdout — for a README pointer that you regenerate rather than hand-curate.
+
+### `scripts/adr-touching.py` — what governs this file? (the discovery surface)
+
+The `touches:` frontmatter is the grep target answering "is there an ADR about the thing
+I'm changing?". This tool *is* that grep, done properly — match a path, glob, or config
+key against every ADR's `touches:` list.
+
+```bash
+# Before editing src/auth.py, ask what decisions constrain it:
+python scripts/adr-touching.py src/auth.py        # exit 10 if an ADR governs it
+python scripts/adr-touching.py 'src/**'           # glob query
+python scripts/adr-touching.py --json src/ | jq '.data[].number'
+```
+
+Matching is bidirectional and pragmatic: exact equality; fnmatch glob either direction
+(touches `src/**` matches query `src/auth.py`; query `src/*` matches touches
+`src/auth.py`); path-prefix containment (query `src/` governs touches `src/auth.py`, and
+vice-versa); config keys (`file.yaml:key`) by exact-or-prefix.
+
+**Guard contract (the load-bearing bit):** exit **0 = no governing ADR found**, exit
+**10 = at least one ADR governs the query**. A pre-edit hook or CI step branches on it —
+"heads up, ADR-010 governs this path; read it before changing." Exit `3` dir not found,
+`2` usage.
 
 ### `scripts/adr-lint.py` — conformance validator
 
@@ -198,8 +245,45 @@ python scripts/adr-lint.py --strict --json | jq '.data[] | select(.severity=="er
 
 Checks required + well-typed frontmatter, the `# ADR-NNN:` title matching the filename,
 the BLUF placement, core section order, **no duplicate numbers** (gaps are a warning),
-and **supersession bidirectionality** (the high-value cross-file check). `--strict` makes
-warnings count toward exit 10. Exit 4 if a file's frontmatter is unparseable.
+and **supersession bidirectionality** (the high-value cross-file check). Plus:
+
+- **Lifecycle consistency** (errors): `superseded` with an empty `superseded-by`;
+  `deprecated` with a non-empty `superseded-by`; an in-force (`accepted`/`proposed`) ADR
+  carrying a `superseded-by`. These complement the bidirectionality check without
+  double-reporting.
+- **Stale `touches`** (warning): a `touches:` entry that is a literal filesystem path
+  (not a glob, not a config key) which no longer resolves under `--repo-root` (default:
+  git toplevel, else cwd) — the discovery surface may have drifted. Warning-tier only;
+  counts toward exit 10 under `--strict`.
+
+`--strict` makes warnings count toward exit 10. Exit 4 if a file's frontmatter is
+unparseable.
+
+---
+
+## CI integration
+
+ADRs only stay trustworthy if the integrity contract is machine-enforced. Gate the lint
+in CI; `--strict` turns the stale-`touches` drift warning into a hard signal.
+
+```yaml
+# .github/workflows/adr-lint.yml
+name: adr-lint
+on: [pull_request]
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint ADRs
+        run: python skills/adr-ops/scripts/adr-lint.py --strict --dir docs/adr
+        # exit 10 (findings, incl. stale-touches under --strict) fails the build
+```
+
+**Local pre-commit gate:** add `python scripts/adr-lint.py --strict --dir docs/adr` to a
+pre-commit hook so a one-sided supersession or a stale discovery surface is caught before
+the commit lands. A pre-edit hook can additionally call `adr-touching.py <changed-path>`
+and surface the governing ADR (exit 10) before a subsystem is modified.
 
 ---
 

@@ -12,12 +12,22 @@ feature releases live in the README "Recent Updates" section.
   generalized from a mature in-house ADR protocol: when-to-write / when-NOT
   decision rule, the canonical format (BLUF-first `## Decision`, fixed section
   order, frontmatter field set), the proposed→accepted→superseded/deprecated
-  lifecycle, and append-only supersession discipline. Ships three tools to the
-  Skill Resource Protocol - `adr-new.sh` (scaffold the next sequential ADR,
-  atomic, no-clobber, `--apply-supersede` flips the old record), `adr-index.sh`
-  (read-only index table from frontmatter), and `adr-lint.py` (validates required
-  fields, status enum, numbering, section order, and cross-file supersession
-  bidirectionality). 36-assertion offline self-test.
+  lifecycle, and append-only supersession discipline. Five tools to the Skill
+  Resource Protocol:
+  - `adr-init.sh` - bootstrap ADRs in a repo adopting them cold (dir +
+    lint-clean ADR-001 + generated README)
+  - `adr-new.sh` - scaffold the next sequential ADR (atomic, no-clobber,
+    `--apply-supersede` flips the superseded record's frontmatter)
+  - `adr-index.sh` - read-only index table from frontmatter; `--output` writes
+    a generated Markdown index
+  - `adr-touching.py` - query the `touches:` discovery surface ("what ADRs
+    govern this path before I change it?"); exit 10 when a governing ADR exists,
+    a usable pre-edit/CI guard
+  - `adr-lint.py` - validates required fields, status enum, numbering, section
+    order, cross-file supersession bidirectionality, lifecycle consistency
+    (status vs `superseded-by`), and stale-`touches` paths
+  Includes a CI-integration section (gate `adr-lint --strict` on exit 10).
+  72-assertion offline self-test.
 
 ## [3.0.0] - 2026-06-10
 
