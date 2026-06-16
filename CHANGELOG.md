@@ -8,6 +8,15 @@ feature releases live in the README "Recent Updates" section.
 ## [Unreleased]
 
 ### Added
+- **`okf-ops` skill** - assess, validate, and adopt the Open Knowledge Format
+  (OKF) across markdown+frontmatter knowledge bases. `assess-okf.py` (read-only)
+  scans a doc tree for OKF-readiness — frontmatter coverage, `type` presence, a
+  key/value histogram, and a readiness % — so you can find good adoption
+  candidates among many repos; `check-okf.py` validates a bundle for conformance
+  (hard rules only, honouring OKF's permissive-consumption contract; `--strict`
+  for CI gating). Honest scope baked in: OKF is a v0.1 draft, adopt per-repo not
+  blanket. Both tools built to the Skill Resource Protocol; OKF format reference +
+  copy-ready concept template; 10-assertion offline self-test.
 - **`adr-ops` skill** - Architecture Decision Records as a cross-project workflow,
   generalized from a mature in-house ADR protocol: when-to-write / when-NOT
   decision rule, the canonical format (BLUF-first `## Decision`, fixed section
