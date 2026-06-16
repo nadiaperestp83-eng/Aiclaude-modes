@@ -14,6 +14,17 @@ feature releases live in the README "Recent Updates" section.
   SKILL-SUBAGENT-REFERENCE, naming-conventions, SKILL-RESOURCE-PROTOCOL) and carries a
   precedence table for when they disagree. `skill-agent-updates.md` now routes here first.
 
+### Fixed (docs)
+- **`SKILL-SUBAGENT-REFERENCE.md` was self-contradictory and misleading** (surfaced by
+  external PR #12): it declared "no other top-level keys are permitted" and its
+  validation awk flagged `when_to_use`/`argument-hint`/`effort` as violations — yet those
+  are documented *Claude Code* top-level fields the repo uses deliberately. Rewrote it to
+  document **two layers** (the portable Agent Skills six-field minimum vs Claude Code's
+  top-level superset), with a referenced field table, the precedence rule (Claude Code is
+  our target → superset fields stay top-level), and an explicit warning that burying them
+  under `metadata` *disables* them. Validation snippet now allowlists the superset and
+  defers to `claude plugin validate`.
+
 ### Changed (docs review)
 - Refreshed `WORKFLOWS.md` with a v3.0 orientation banner (skills-first; subagents are
   isolation/worker-only); fixed `naming-conventions.md` frontmatter example (metadata
