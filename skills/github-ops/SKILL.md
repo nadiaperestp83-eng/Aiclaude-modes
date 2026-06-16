@@ -330,9 +330,19 @@ When adding any of the above, keep the boundary discipline: anything talking to 
 | `references/metadata-checklist.md` | Audit checklist source of truth |
 | `references/issue-ops.md` | Issue operation playbooks (view/triage/comment/create/close) + preview templates |
 | `references/pr-ops.md` | PR operation playbooks (create/review/merge) + pre-merge gate + merge-strategy decision tree |
-| `scripts/` | (empty; reserved — extract patterns into scripts when they repeat across uses) |
+| `scripts/check-issues.sh` | Surface open issues you may not have seen (externally-authored + stale) for a repo or remote. Read-only `gh issue list`; flags author≠owner and untouched-for-N-days |
 | `assets/` | (empty; reserved for README templates / snippets) |
 
-## Why no scripts yet
+## Open-issue awareness (the blind spot)
 
-Initial implementation uses inline `gh`, `jq`, `git -C` calls rather than wrapping them in scripts. Once usage reveals patterns that repeat verbatim across invocations (CHANGELOG extraction is the most likely candidate), extract those into `scripts/` and reference them here. Premature script extraction obscures what the skill is actually doing.
+You don't see issues other people file — your own you know about; a stranger's bug report from two months ago is the gap. `scripts/check-issues.sh` closes it:
+
+```bash
+bash scripts/check-issues.sh --repo 0xDarkMatter/flarecrawl   # one repo
+bash scripts/check-issues.sh --remote origin --stale-days 14  # derive from a remote
+bash scripts/check-issues.sh --json | jq '.data[] | select(.external)'
+```
+
+Exit `0` = nothing you're missing (no open issues, or all are yours and fresh); `10` = external/stale issues present (the things to look at); `7` = unavailable (not a GitHub remote, gh unauthed/offline) — advisory, never a hard failure; `2` usage; `5` gh not installed.
+
+**Wired into the pre-push gate** ([push-gate](../push-gate/)): `preflight.sh` calls this in `--advisory` mode as a post-gate step, so every push surfaces unseen external/stale issues for the target remote. It is **read-only, timeout-bounded, and never affects the gate verdict** — silent when gh is absent/unauthed or the remote isn't GitHub. Run it standalone any time, or across repos, to find what you've missed. For acting on what it surfaces (view/triage/comment/close), see `references/issue-ops.md`.

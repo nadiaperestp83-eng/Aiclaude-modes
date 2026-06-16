@@ -8,6 +8,14 @@ feature releases live in the README "Recent Updates" section.
 ## [Unreleased]
 
 ### Added
+- **github-ops open-issue awareness** - `scripts/check-issues.sh` surfaces open
+  issues you may not have seen (externally-authored + stale), read-only via
+  `gh issue list`. Wired into the pre-push gate (`push-gate/preflight.sh`) as a
+  post-gate **advisory** step: every push to a GitHub remote now flags unseen
+  external/stale issues for that repo. Timeout-bounded, never changes the gate
+  verdict, silent when gh is absent/unauthed or the remote isn't GitHub. Exit 10
+  = issues to look at, 7 = unavailable (advisory). github-ops gains a 6-assertion
+  offline test suite.
 - **`okf-ops` skill** - assess, validate, and adopt the Open Knowledge Format
   (OKF) across markdown+frontmatter knowledge bases. `assess-okf.py` (read-only)
   scans a doc tree for OKF-readiness — frontmatter coverage, `type` presence, a

@@ -34,6 +34,7 @@ Step 5  →  Check divergence (non-ff ⇒ require user to rebase first)
 Step 6  →  Secret scan  ────────┐
 Step 7  →  Forbidden-file scan  │ refuse on any hit
 Step 8  →  Size advisory        │
+        →  Open-issue advisory (github-ops; informational, never gates)
 Step 9  →  Explicit confirm     │
 Step 10 →  git push <remote> <branch>
 Step 11 →  Post-push verify (ls-remote matches pushed SHA)

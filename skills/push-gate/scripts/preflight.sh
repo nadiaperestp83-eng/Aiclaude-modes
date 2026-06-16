@@ -10,6 +10,10 @@
 #   4  non-ff divergence
 #   5  missing dep (gitleaks / rg)
 #   6  bad invocation (missing remote/branch or unknown remote)
+#
+# After all gates pass, an advisory open-issue check (github-ops/check-issues.sh)
+# surfaces unseen external/stale issues for the target remote. It is read-only,
+# timeout-bounded, and NEVER changes the exit code — purely informational.
 
 set -euo pipefail
 
@@ -146,6 +150,21 @@ elif [ "$COMMIT_COUNT" -gt 10 ]; then
   echo "STEP 8  INFO  ${COMMIT_COUNT} commits (moderate batch)"
 else
   echo "STEP 8  OK    ${COMMIT_COUNT} commits"
+fi
+
+# ── Step 9: open-issue advisory (informational; does NOT gate) ────────────────
+# Surface externally-authored / stale issues you may not have seen, for the remote
+# you're pushing to. Read-only, timeout-bounded, silent when gh is absent/unauthed
+# or the remote isn't GitHub. Its exit never affects the gate verdict.
+ISSUE_CHECK="$SCRIPT_DIR/../../github-ops/scripts/check-issues.sh"
+if [ -f "$ISSUE_CHECK" ]; then
+  issue_rc=0
+  bash "$ISSUE_CHECK" --advisory --remote "$REMOTE" || issue_rc=$?
+  if [ "$issue_rc" -eq 10 ]; then
+    echo "ISSUES  NOTE  open issues flagged above (advisory — does not block the push)"
+  else
+    echo "ISSUES  OK    no unseen open issues (or check unavailable)"
+  fi
 fi
 
 divider
