@@ -66,6 +66,32 @@ bash -n skills/ffmpeg-ops/scripts/verify-commands.sh 2>/dev/null \
 bash -n skills/ytdlp-ops/scripts/check-ytdlp-version.sh 2>/dev/null \
     && pass "bash -n check-ytdlp-version.sh" || bad "bash -n check-ytdlp-version.sh"
 
+echo "== terminal design: verifier framing adopts term.sh and is ASCII-pure"
+# Each verifier renders its human framing on stderr; under TERM_ASCII=1 every
+# glyph must fall back to its registered ASCII proxy (design principle #3).
+purity() { # desc, cmd...
+    local desc="$1"; shift
+    local errout
+    errout="$(TERM_ASCII=1 FORCE_COLOR=1 "$@" 2>&1 1>/dev/null)"
+    if printf '%s' "$errout" | LC_ALL=C grep -q '[^[:print:][:cntrl:]]'; then
+        bad "$desc framing emits non-ASCII under TERM_ASCII=1"
+    else pass "$desc framing pure ASCII under TERM_ASCII=1"; fi
+}
+purity "action-refs" bash skills/terraform-ops/scripts/check-action-refs.sh --offline
+purity "model-table" "$PY" skills/claude-api-ops/scripts/check-model-table.py --offline
+purity "hooks-lint"  "$PY" skills/claude-code-ops/scripts/validate-hooks-json.py hooks/hooks.json
+__tf="$(mktemp)"; printf '{"suites":[]}' > "$__tf"
+purity "flake-triage" "$PY" skills/playwright-ops/scripts/triage-flakes.py "$__tf"
+rm -f "$__tf"
+grep -q '_lib/term.sh' skills/terraform-ops/scripts/check-action-refs.sh \
+    && pass "check-action-refs sources term.sh" || bad "check-action-refs missing term.sh"
+for s in skills/claude-api-ops/scripts/check-model-table.py \
+         skills/claude-code-ops/scripts/validate-hooks-json.py \
+         skills/playwright-ops/scripts/triage-flakes.py; do
+    grep -q 'class Term' "$s" && pass "$(basename "$s") carries inline Term" \
+        || bad "$(basename "$s") missing inline Term"
+done
+
 echo
 if [ "$fail" -eq 0 ]; then echo "resource checks: clean"; exit 0; fi
 echo "resource checks: failures above"; exit 1

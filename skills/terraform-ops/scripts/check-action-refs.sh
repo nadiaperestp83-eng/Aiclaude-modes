@@ -30,6 +30,12 @@ set -uo pipefail
 EXIT_OK=0; EXIT_USAGE=2; EXIT_NOT_FOUND=3; EXIT_MALFORMED=4
 EXIT_MISSING_DEP=5; EXIT_UNAVAILABLE=7; EXIT_DRIFT=10
 
+# Terminal design system (skills/_lib/term.sh). Framing rides stderr (term_init 2);
+# the findings list / --json stay plain on stdout. Degrade if the lib is gone.
+__lib="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../_lib" 2>/dev/null && pwd || true)"
+if [ -n "${__lib:-}" ] && [ -f "$__lib/term.sh" ]; then . "$__lib/term.sh"; term_init 2; __HAVE_TERM=1
+else __HAVE_TERM=0; TERM_DOT="|"; fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEFAULT_FILE="${SCRIPT_DIR}/../assets/github-actions-terraform.yml"
 
@@ -60,6 +66,22 @@ if [[ "$MODE" == "live" ]]; then
 fi
 
 emit() { [[ "$QUIET" -eq 1 ]] && return; printf '%s\n' "$1" >&2; }
+
+# Panel framing applies to the human stderr stream when it's a TTY (or FORCE_COLOR
+# forces a render); piped/quiet consumers keep the legacy "=== / [TAG]" lines.
+PANEL=0
+if [[ "$__HAVE_TERM" -eq 1 && "$QUIET" -eq 0 ]] && { [ -t 2 ] || [ -n "${FORCE_COLOR:-}" ]; }; then PANEL=1; fi
+__PANEL_OPEN=0
+popen() {
+  [[ "$PANEL" -eq 1 && "$__PANEL_OPEN" -eq 0 ]] || return 0
+  { term_panel_open terraform "action-refs ${TERM_DOT} ${MODE}"; term_panel_vert; } >&2
+  __PANEL_OPEN=1
+}
+# prow <mark> <legacy-prefix> <text> — panel status row, or the legacy tagged line.
+prow() {
+  if [[ "$PANEL" -eq 1 ]]; then popen; term_status_row "$1" "$3" >&2
+  else emit "  $2 $3"; fi
+}
 
 # State accumulators
 malformed=0; drift=0; unavailable=0; warned=0
@@ -155,11 +177,11 @@ add_json() {  # file line ref status
     '{file:$f, line:$l, ref:$r, status:$s}')")
 }
 
-emit "=== check-action-refs (${MODE}) ==="
+if [[ "$PANEL" -eq 1 ]]; then popen; else emit "=== check-action-refs (${MODE}) ==="; fi
 
 for f in "${FILES[@]}"; do
   if [[ ! -f "$f" ]]; then
-    emit "ERROR: file not found: $f"
+    prow bad "ERROR:" "file not found: $f"
     # In JSON mode still report a structured error per §5
     if [[ "$JSON" -eq 1 ]]; then
       echo "{\"error\":{\"code\":\"NOT_FOUND\",\"message\":\"file not found: $f\"}}"
@@ -189,13 +211,13 @@ for f in "${FILES[@]}"; do
     case "$C_STATUS" in
       malformed)
         malformed=1
-        emit "  [MALFORMED] ${f}:${lineno}  uses: ${val}"
+        prow bad "[MALFORMED]" "${f}:${lineno}  uses: ${val}"
         TEXT_ROWS+=("${f}:${lineno}	${val}	malformed")
         add_json "$f" "$lineno" "$val" "malformed"
         ;;
       warn)
         warned=1
-        emit "  [WARN floating] ${f}:${lineno}  ${val}  (prefer SHA pin)"
+        prow warn "[WARN floating]" "${f}:${lineno}  ${val}  (prefer SHA pin)"
         TEXT_ROWS+=("${f}:${lineno}	${val}	warn")
         add_json "$f" "$lineno" "$val" "warn"
         ;;
@@ -204,17 +226,17 @@ for f in "${FILES[@]}"; do
           res=$(resolve_ref "$C_OWNER" "$C_REPO" "$C_REF")
           case "$res" in
             resolved)
-              emit "  [ok] ${f}:${lineno}  ${C_OWNER}/${C_REPO}@${C_REF}"
+              prow ok "[ok]" "${f}:${lineno}  ${C_OWNER}/${C_REPO}@${C_REF}"
               TEXT_ROWS+=("${f}:${lineno}	${val}	ok")
               add_json "$f" "$lineno" "$val" "ok" ;;
             notfound)
               drift=1
-              emit "  [DRIFT 404] ${f}:${lineno}  ${C_OWNER}/${C_REPO}@${C_REF}"
+              prow bad "[DRIFT 404]" "${f}:${lineno}  ${C_OWNER}/${C_REPO}@${C_REF}"
               TEXT_ROWS+=("${f}:${lineno}	${val}	drift")
               add_json "$f" "$lineno" "$val" "drift" ;;
             unavailable)
               unavailable=1
-              emit "  [unavailable] ${f}:${lineno}  ${C_OWNER}/${C_REPO}@${C_REF} (API unreachable/rate-limited)"
+              prow warn "[unavailable]" "${f}:${lineno}  ${C_OWNER}/${C_REPO}@${C_REF} (API unreachable/rate-limited)"
               TEXT_ROWS+=("${f}:${lineno}	${val}	unavailable")
               add_json "$f" "$lineno" "$val" "unavailable" ;;
           esac
@@ -226,6 +248,17 @@ for f in "${FILES[@]}"; do
     esac
   done < <(grep -nE '^[[:space:]]*-?[[:space:]]*uses:[[:space:]]*' "$f" 2>/dev/null)
 done
+
+# --- panel footer (stderr framing only) ---------------------------------------
+if [[ "$PANEL" -eq 1 && "$__PANEL_OPEN" -eq 1 ]]; then
+  ph_state="healthy"; ph_text="refs well-formed"
+  if [[ "$malformed" -eq 1 || "$drift" -eq 1 ]]; then ph_state="critical"; ph_text="findings present"
+  elif [[ "$unavailable" -eq 1 ]]; then ph_state="warning"; ph_text="api unavailable"
+  elif [[ "$warned" -eq 1 ]]; then ph_state="warning"; ph_text="floating refs"; fi
+  { term_panel_vert
+    term_panel_close "--live to resolve ${TERM_DOT} --json for data" "$(term_health "$ph_state" "$ph_text")"
+  } >&2
+fi
 
 # --- output -------------------------------------------------------------------
 if [[ "$JSON" -eq 1 ]]; then

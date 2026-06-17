@@ -53,6 +53,44 @@ for _stream in (sys.stdout, sys.stderr):
     except (AttributeError, ValueError):
         pass
 
+class Term:
+    """Tiny ANSI helper mirroring skills/_lib/term.sh (term.sh is bash-only; per
+    TERMINAL-DESIGN.md §9 the Python port is inline with matching keys/glyphs).
+    Honors FORCE_COLOR / NO_COLOR / TERM_ASCII; color tracks the bound stream's TTY,
+    and glyphs fall back to ASCII on TERM_ASCII or a non-UTF stream encoding."""
+
+    _C = {"green": "\033[32m", "yellow": "\033[33m", "orange": "\033[38;5;208m",
+          "red": "\033[31m", "cyan": "\033[36m", "dim": "\033[2m", "off": "\033[0m"}
+    _GLYPH = {"ok": "✓", "bad": "✗", "warn": "▲", "skip": "—", "na": "—", "unknown": "?"}
+    _ASCII = {"ok": "+", "bad": "x", "warn": "!", "skip": "-", "na": "-", "unknown": "?"}
+    _MARK_COLOR = {"ok": "green", "bad": "red", "warn": "orange", "skip": "dim",
+                   "na": "dim", "unknown": "yellow"}
+
+    def __init__(self, stream=sys.stderr):
+        enc = (getattr(stream, "encoding", "") or "").lower()
+        self.ascii = (os.environ.get("TERM_ASCII") == "1"
+                      or os.environ.get("FLEET_ASCII") == "1" or "utf" not in enc)
+        if os.environ.get("FORCE_COLOR"):
+            self.color = True
+        elif (os.environ.get("NO_COLOR") is not None or os.environ.get("TERM") == "dumb"
+              or not getattr(stream, "isatty", lambda: False)()):
+            self.color = False
+        else:
+            self.color = True
+
+    def c(self, name, text):
+        return f"{self._C.get(name, '')}{text}{self._C['off']}" if self.color else text
+
+    def mark(self, state):
+        return self.c(self._MARK_COLOR.get(state, ""),
+                      (self._ASCII if self.ascii else self._GLYPH).get(state, "."))
+
+    def hdr(self, text):
+        return self.c("cyan", f"=== {text} ===")
+
+
+TERM = Term(sys.stderr)
+
 EXIT_OK = 0
 EXIT_USAGE = 2
 EXIT_NOT_FOUND = 3
@@ -81,7 +119,7 @@ def fail_validation(message: str, details: dict, json_mode: bool) -> NoReturn:
     if json_mode:
         print(json.dumps({"error": {"code": "VALIDATION", "message": message,
                                     "details": details}}))
-    print(f"ERROR: {message}", file=sys.stderr)
+    print(f"{TERM.mark('bad')} ERROR: {message}", file=sys.stderr)
     for k, v in details.items():
         print(f"  {k}: {v}", file=sys.stderr)
     sys.exit(EXIT_VALIDATION)
@@ -203,7 +241,7 @@ def validate_offline(skill_dir: Path, json_mode: bool, quiet: bool) -> dict:
             print(f"ERROR: required file not found: {p}", file=sys.stderr)
             sys.exit(EXIT_NOT_FOUND)
 
-    note("=== offline model-table consistency check ===", quiet)
+    note(TERM.hdr("offline model-table consistency check"), quiet)
 
     model_rows, _ = parse_model_table(skill_md.read_text(encoding="utf-8"))
     if not model_rows:
@@ -274,7 +312,7 @@ def validate_offline(skill_dir: Path, json_mode: bool, quiet: bool) -> dict:
     note(f"  {len(models_out)} model rows, all well-formed", quiet)
     note(f"  {len(cache_rows)} cache-minimum rows, all integer", quiet)
     note("  cross-file model lineup consistent", quiet)
-    note("OK: tables internally consistent.", quiet)
+    note(f"{TERM.mark('ok')} OK: tables internally consistent.", quiet)
 
     return {
         "mode": "offline",
@@ -336,7 +374,7 @@ def validate_live(skill_dir: Path, json_mode: bool, quiet: bool) -> dict:
         sys.exit(EXIT_MISSING_DEP)
 
     # Reuse offline parse for the documented id set (also validates well-formedness).
-    note("=== live model-id coverage check ===", quiet)
+    note(TERM.hdr("live model-id coverage check"), quiet)
     skill_md = skill_dir / "SKILL.md"
     if not skill_md.is_file():
         print(f"ERROR: required file not found: {skill_md}", file=sys.stderr)
@@ -379,13 +417,13 @@ def validate_live(skill_dir: Path, json_mode: bool, quiet: bool) -> dict:
 
     if drift:
         if missing:
-            note("DRIFT: documented id(s) absent from live Models API:", quiet)
+            note(f"{TERM.mark('bad')} {TERM.c('red', 'DRIFT: documented id(s) absent from live Models API:')}", quiet)
             for m in missing:
-                note(f"  - {m}", quiet)
+                note(f"  {TERM.c('red', '-')} {m}", quiet)
         if new_models:
-            note("DRIFT: live Models API has alias id(s) the table lacks:", quiet)
+            note(f"{TERM.mark('bad')} {TERM.c('red', 'DRIFT: live Models API has alias id(s) the table lacks:')}", quiet)
             for m in new_models:
-                note(f"  + {m}", quiet)
+                note(f"  {TERM.c('green', '+')} {m}", quiet)
         if json_mode:
             print(json.dumps({"data": result, "meta": {"schema": SCHEMA,
                                                         "status": "drift"}}))

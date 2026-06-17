@@ -28,6 +28,52 @@ import os
 import subprocess
 import sys
 
+# Windows consoles default to cp1252; force UTF-8 so glyphs/em-dashes in framing
+# don't raise UnicodeEncodeError (the repo's standard fix).
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+    except (AttributeError, ValueError):
+        pass
+
+
+class Term:
+    """Tiny ANSI helper mirroring skills/_lib/term.sh (bash-only; per
+    TERMINAL-DESIGN.md §9 the Python port is inline). Honors FORCE_COLOR /
+    NO_COLOR / TERM_ASCII; ASCII glyph fallback on TERM_ASCII or a non-UTF stream."""
+
+    _C = {"green": "\033[32m", "yellow": "\033[33m", "orange": "\033[38;5;208m",
+          "red": "\033[31m", "cyan": "\033[36m", "dim": "\033[2m", "off": "\033[0m"}
+    _GLYPH = {"ok": "✓", "bad": "✗", "warn": "▲", "skip": "—", "na": "—", "unknown": "?"}
+    _ASCII = {"ok": "+", "bad": "x", "warn": "!", "skip": "-", "na": "-", "unknown": "?"}
+    _MARK_COLOR = {"ok": "green", "bad": "red", "warn": "orange", "skip": "dim",
+                   "na": "dim", "unknown": "yellow"}
+
+    def __init__(self, stream=sys.stderr):
+        enc = (getattr(stream, "encoding", "") or "").lower()
+        self.ascii = (os.environ.get("TERM_ASCII") == "1"
+                      or os.environ.get("FLEET_ASCII") == "1" or "utf" not in enc)
+        if os.environ.get("FORCE_COLOR"):
+            self.color = True
+        elif (os.environ.get("NO_COLOR") is not None or os.environ.get("TERM") == "dumb"
+              or not getattr(stream, "isatty", lambda: False)()):
+            self.color = False
+        else:
+            self.color = True
+
+    def c(self, name, text):
+        return f"{self._C.get(name, '')}{text}{self._C['off']}" if self.color else text
+
+    def mark(self, state):
+        return self.c(self._MARK_COLOR.get(state, ""),
+                      (self._ASCII if self.ascii else self._GLYPH).get(state, "."))
+
+    def hdr(self, text):
+        return self.c("cyan", f"=== {text} ===")
+
+
+TERM = Term(sys.stderr)
+
 SCHEMA = "claude-mods.claude-code-ops.hooks-lint/v1"
 
 EXIT_OK = 0
@@ -267,7 +313,7 @@ def main(argv):
         print("ERROR: %s" % msg, file=sys.stderr)
         return EXIT_MALFORMED
 
-    print("=== hooks-lint: %s ===" % path, file=sys.stderr)
+    print(TERM.hdr("hooks-lint: %s" % path), file=sys.stderr)
     findings = lint(doc)
 
     errors = [f for f in findings if f.severity == "error"]
@@ -286,12 +332,16 @@ def main(argv):
 
     # Human framing → stderr.
     for f in findings:
-        tag = "ERROR" if f.severity == "error" else "warn "
-        print("  [%s] %s: %s" % (tag, f.pointer or "/", f.message),
+        if f.severity == "error":
+            mk, tag = TERM.mark("bad"), TERM.c("red", "ERROR")
+        else:
+            mk, tag = TERM.mark("warn"), TERM.c("orange", "warn")
+        print("  %s %s %s: %s" % (mk, tag, f.pointer or "/", f.message),
               file=sys.stderr)
     if not findings:
-        print("  clean — no findings", file=sys.stderr)
-    print("--- %d error(s), %d warning(s) ---" % (len(errors), len(warnings)),
+        print("  %s clean, no findings" % TERM.mark("ok"), file=sys.stderr)
+    print("--- %s error(s), %s warning(s) ---"
+          % (TERM.c("red", str(len(errors))), TERM.c("orange", str(len(warnings)))),
           file=sys.stderr)
 
     if errors or (args.strict and warnings):

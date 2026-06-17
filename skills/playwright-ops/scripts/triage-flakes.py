@@ -23,8 +23,55 @@
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
+
+# Windows consoles default to cp1252; force UTF-8 so glyphs in framing don't raise
+# UnicodeEncodeError (the repo's standard fix).
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+    except (AttributeError, ValueError):
+        pass
+
+
+class Term:
+    """Tiny ANSI helper mirroring skills/_lib/term.sh (bash-only; per
+    TERMINAL-DESIGN.md §9 the Python port is inline). Honors FORCE_COLOR /
+    NO_COLOR / TERM_ASCII; ASCII glyph fallback on TERM_ASCII or a non-UTF stream."""
+
+    _C = {"green": "\033[32m", "yellow": "\033[33m", "orange": "\033[38;5;208m",
+          "red": "\033[31m", "cyan": "\033[36m", "dim": "\033[2m", "off": "\033[0m"}
+    _GLYPH = {"ok": "✓", "bad": "✗", "warn": "▲", "skip": "—", "na": "—", "unknown": "?"}
+    _ASCII = {"ok": "+", "bad": "x", "warn": "!", "skip": "-", "na": "-", "unknown": "?"}
+    _MARK_COLOR = {"ok": "green", "bad": "red", "warn": "orange", "skip": "dim",
+                   "na": "dim", "unknown": "yellow"}
+
+    def __init__(self, stream=sys.stderr):
+        enc = (getattr(stream, "encoding", "") or "").lower()
+        self.ascii = (os.environ.get("TERM_ASCII") == "1"
+                      or os.environ.get("FLEET_ASCII") == "1" or "utf" not in enc)
+        if os.environ.get("FORCE_COLOR"):
+            self.color = True
+        elif (os.environ.get("NO_COLOR") is not None or os.environ.get("TERM") == "dumb"
+              or not getattr(stream, "isatty", lambda: False)()):
+            self.color = False
+        else:
+            self.color = True
+
+    def c(self, name, text):
+        return f"{self._C.get(name, '')}{text}{self._C['off']}" if self.color else text
+
+    def mark(self, state):
+        return self.c(self._MARK_COLOR.get(state, ""),
+                      (self._ASCII if self.ascii else self._GLYPH).get(state, "."))
+
+    def hdr(self, text):
+        return self.c("cyan", f"=== {text} ===")
+
+
+TERM = Term(sys.stderr)
 
 SCHEMA = "claude-mods.playwright-ops.flake-triage/v1"
 
@@ -198,8 +245,10 @@ def main(argv=None):
     flaky_n = sum(1 for f in finds if f["outcome"] == "flaky")
     unexp_n = sum(1 for f in finds if f["outcome"] == "unexpected")
     if not args.quiet:
-        err(f"=== Flake triage: {path.name} ===")
-        err(f"  {total} tests | {flaky_n} flaky | {unexp_n} unexpected | showing {len(capped)} of {len(shown)}")
+        err(TERM.hdr(f"Flake triage: {path.name}"))
+        flaky_txt = TERM.c("orange", f"{flaky_n} flaky") if flaky_n else "0 flaky"
+        unexp_txt = TERM.c("red", f"{unexp_n} unexpected") if unexp_n else "0 unexpected"
+        err(f"  {total} tests | {flaky_txt} | {unexp_txt} | showing {len(capped)} of {len(shown)}")
 
     if args.json:
         envelope = {
