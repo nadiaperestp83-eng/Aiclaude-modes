@@ -16,18 +16,23 @@ feature releases live in the README "Recent Updates" section.
 
 ### Changed (terminal output)
 - **Terminal design system promoted from experimental to the standard** for claude-mods
-  shell scripts (`docs/TERMINAL-DESIGN.md`). The `github-ops` audit family
-  (`repo-scorecard.sh`, `check-security-posture.sh`, `check-issues.sh`) now sources
-  `skills/_lib/term.sh` for all human-facing framing — cyan section headers, colored
-  status marks, a score pip-bar — while the `--json`/data product on stdout stays plain
-  (stream separation preserved; verified zero ANSI on stdout). Every glyph falls back to
-  ASCII under `TERM_ASCII=1` (a full scorecard renders pure-ASCII), and color follows the
-  stderr TTY so piping `--json | jq` keeps the framing colored.
+  shell scripts (`docs/TERMINAL-DESIGN.md`), with the **enclosing panel as the default
+  grammar**. The `github-ops` audit family (`repo-scorecard.sh`,
+  `check-security-posture.sh`, `check-issues.sh`) now sources `skills/_lib/term.sh` and
+  wraps its human output in the full `term_panel_open … term_panel_close` frame — brand
+  header, `│` body rail, `term_section` sub-headers, colored `term_mark` rows, a score
+  pip-bar, and a footer health indicator — matching the fleet-ops look. The `--json`/data
+  product on stdout stays plain (stream separation preserved; verified zero ANSI on
+  stdout). Every glyph falls back to ASCII under `TERM_ASCII=1` (a full scorecard renders
+  pure-ASCII), and color follows the stderr TTY so piping `--json | jq` keeps framing colored.
 - **`term.sh` additions**: `term_init` takes an optional fd (`term_init 2`) so
   stream-separated tools detect color on the stream the human actually sees; new
-  `term_mark <ok|bad|warn|skip|na|unknown>` checklist primitive (with registered ASCII
-  proxies) and a `TERM_ARROW` (-> ) pointer glyph. github-ops test suite gained 6
-  assertions (source-check + ASCII-fallback purity); 40/40 offline.
+  `term_panel_line` (generic rail body-row, the open-ended counterpart to the
+  branch-shaped `term_leaf_line`), `term_mark <ok|bad|warn|skip|na|unknown>` checklist
+  primitive, a `TERM_ARROW` pointer glyph, and `github-ops`/`audit`/`supply-chain`/`net-ops`
+  brand glyphs — all with registered ASCII proxies. github-ops test suite gained 6
+  assertions (source-check + ASCII-fallback purity across panel + checklist primitives);
+  40/40 offline.
 
 ### Fixed (docs)
 - **`SKILL-SUBAGENT-REFERENCE.md` was self-contradictory and misleading** (surfaced by

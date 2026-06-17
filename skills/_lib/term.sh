@@ -191,6 +191,10 @@ __term_lookup() {
     BRAND::git)                 entry="🌿|[G]" ;;
     BRAND::windows-ops)         entry="🩺|[H]" ;;
     BRAND::mac-ops)             entry="🩺|[M]" ;;
+    BRAND::github-ops)          entry="🐙|[G]" ;;
+    BRAND::audit)               entry="🔎|[A]" ;;
+    BRAND::supply-chain)        entry="🛡|[S]" ;;
+    BRAND::net-ops)             entry="📡|[N]" ;;
     HEALTH_GLYPH::healthy)      entry="•|(+)" ;;
     HEALTH_GLYPH::pending)      entry="•|(.)" ;;
     HEALTH_GLYPH::warning)      entry="•|(!)" ;;
@@ -339,6 +343,14 @@ term_panel_close() {
 # term_panel_vert  — emit a single body-line spacer "│"
 term_panel_vert() {
   printf '%s\n' "$(term_color dim "$TERM_TREE_VERT")"
+}
+
+# term_panel_line <text>  — a generic body row on the rail:  │   <text>
+# The fleet-specific term_leaf_line is shaped for branch + commit-rail + age; this
+# is the open-ended counterpart for any panel body. `text` may already carry colored
+# marks (term_mark / term_color) — it is printed verbatim so the caller owns styling.
+term_panel_line() {
+  printf '%s   %s\n' "$(term_color dim "$TERM_TREE_VERT")" "$*"
 }
 
 # ─── Body components ──────────────────────────────────────────────────────

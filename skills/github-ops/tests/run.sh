@@ -151,9 +151,11 @@ if [ -f "$LIBTERM" ]; then
   ok "term.sh present"
   # Under TERM_ASCII=1 every framing primitive must fall back to pure ASCII
   # (design principle #3: every glyph has a registered ASCII proxy).
-  marks="$(TERM_ASCII=1 LT="$LIBTERM" bash -c '. "$LT"; term_init; printf "%s%s%s%s%s%s%s" \
+  marks="$(TERM_ASCII=1 LT="$LIBTERM" bash -c '. "$LT"; term_init; printf "%s%s%s%s%s%s%s%s%s%s%s" \
     "$(term_mark ok)" "$(term_mark bad)" "$(term_mark warn)" "$(term_mark na)" \
-    "$(term_mark unknown)" "$(term_header hdr)" "$TERM_ARROW"')"
+    "$(term_mark unknown)" "$(term_header hdr)" "$TERM_ARROW" \
+    "$(term_panel_open github-ops PANEL meta)" "$(term_panel_line body)" \
+    "$(term_section "" sect 3)" "$(term_panel_close hk "$(term_health warning x)")"')"
   if printf '%s' "$marks" | LC_ALL=C grep -q '[^[:print:][:cntrl:]]'; then
     no "term.sh TERM_ASCII=1 still emits non-ASCII bytes"
   else ok "term.sh TERM_ASCII=1 primitives are pure ASCII"; fi

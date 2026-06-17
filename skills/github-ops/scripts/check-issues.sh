@@ -33,9 +33,13 @@ GH_TIMEOUT="${GH_TIMEOUT:-15}"   # seconds; bounds the network call
 __lib="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../_lib" 2>/dev/null && pwd || true)"
 if [ -n "${__lib:-}" ] && [ -f "$__lib/term.sh" ]; then . "$__lib/term.sh"; term_init 2
 else
-  term_header() { printf '%s\n' "${1:-}"; }
-  term_color()  { shift; printf '%s' "$*"; }
-  term_mark()   { case "${1:-}" in ok) printf '+';; bad|gap) printf 'x';; warn) printf '!';; skip|na) printf '-';; unknown) printf '?';; *) printf '.';; esac; }
+  term_panel_open()  { printf '== %s %s ==\n' "${2:-}" "${3:-}"; }
+  term_panel_close() { [ -n "${1:-}" ] && printf '%s\n' "$1"; }
+  term_panel_vert()  { :; }
+  term_panel_line()  { printf '  %s\n' "$*"; }
+  term_color()       { shift; printf '%s' "$*"; }
+  term_mark()        { case "${1:-}" in ok) printf '+';; bad|gap) printf 'x';; warn) printf '!';; skip|na) printf '-';; unknown) printf '?';; *) printf '.';; esac; }
+  term_health()      { shift; printf '%s' "$*"; }
   TERM_ARROW="->"
 fi
 
@@ -111,10 +115,14 @@ if [ "$flagged_n" -eq 0 ]; then
 fi
 
 {
-  term_header "OPEN ISSUES: $REPO" "$flagged_n of $total open flagged"
-  printf '%s' "$analysis" | jq -r --arg m "$(term_mark warn)" '.flagged[]
-    | "  \($m) #\(.number)  [\(if .external then "external" else "yours" end)\(if .stale then ",stale" else "" end)]  by \(.author.login)  \(.title)"'
-  echo "$(term_color dim "  ${TERM_ARROW} gh issue view <n> --repo $REPO    (read-only; this never blocks a push)")"
+  term_panel_open github-ops "OPEN ISSUES" "$REPO  $flagged_n of $total flagged"
+  term_panel_vert
+  while IFS= read -r ln; do term_panel_line "$ln"; done < <(printf '%s' "$analysis" | jq -r --arg m "$(term_mark warn)" '.flagged[]
+    | "\($m) #\(.number)  [\(if .external then "external" else "yours" end)\(if .stale then ",stale" else "" end)]  by \(.author.login)  \(.title)"')
+  term_panel_vert
+  term_panel_close \
+    "$(term_color dim "${TERM_ARROW} gh issue view <n>    read-only, never blocks a push")" \
+    "$(term_health warning "$flagged_n flagged")"
 } >&2
 
 exit "$EX_FINDINGS"

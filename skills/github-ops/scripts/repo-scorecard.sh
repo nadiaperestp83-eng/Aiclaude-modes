@@ -67,10 +67,15 @@ ISS="$HERE/check-issues.sh"
 __lib="$(cd "$HERE/../../_lib" 2>/dev/null && pwd || true)"
 if [ -n "${__lib:-}" ] && [ -f "$__lib/term.sh" ]; then . "$__lib/term.sh"; term_init 2
 else
-  term_header()  { printf '%s\n' "${1:-}"; }
-  term_color()   { shift; printf '%s' "$*"; }
-  term_mark()    { case "${1:-}" in ok) printf '+';; bad|gap) printf 'x';; warn) printf '!';; skip|na) printf '-';; unknown) printf '?';; *) printf '.';; esac; }
-  term_pip_bar() { :; }
+  term_panel_open()  { printf '== %s %s ==\n' "${2:-}" "${3:-}"; }
+  term_panel_close() { [ -n "${1:-}" ] && printf '%s\n' "$1"; }
+  term_panel_vert()  { :; }
+  term_panel_line()  { printf '  %s\n' "$*"; }
+  term_section()     { printf '%s (%s)\n' "${2:-}" "${3:-}"; }
+  term_color()       { shift; printf '%s' "$*"; }
+  term_mark()        { case "${1:-}" in ok) printf '+';; bad|gap) printf 'x';; warn) printf '!';; skip|na) printf '-';; unknown) printf '?';; *) printf '.';; esac; }
+  term_health()      { shift; printf '%s' "$*"; }
+  term_pip_bar()     { :; }
   TERM_ARROW="->"
 fi
 
@@ -353,20 +358,31 @@ print_card() { # repo_json
   local o="$1" repo vis score grade
   repo="$(jq -r '.repo' <<<"$o")"; vis="$(jq -r '.visibility' <<<"$o")"
   score="$(jq -r '.score' <<<"$o")"; grade="$(jq -r '.grade' <<<"$o")"
+  local health
+  case "$grade" in
+    A|B) health="$(term_health healthy "grade $grade")" ;;
+    C|D) health="$(term_health warning "grade $grade")" ;;
+    *)   health="$(term_health critical "grade $grade")" ;;
+  esac
   {
-    term_header "REPO SCORECARD: $repo" "$vis"
-    echo "  SCORE  $(term_pip_bar score "$score" 100)  $score/100   GRADE $grade"
-    term_header "dimensions (weight)"
-    printf '  %-9s %s  %s\n' "security"  "$(mark "$(jq -r '.dimensions.security.status' <<<"$o")")"  "$(jq -r '.dimensions.security.detail' <<<"$o")  $(term_color dim "(w35)")"
-    printf '  %-9s %s  %s\n' "metadata"  "$(mark "$(jq -r '.dimensions.metadata.status' <<<"$o")")"  "$(jq -r '.dimensions.metadata.detail' <<<"$o")  $(term_color dim "(w25)")"
-    printf '  %-9s %s  %s\n' "release"   "$(mark "$(jq -r '.dimensions.release.status' <<<"$o")")"   "$(jq -r '.dimensions.release.detail' <<<"$o")  $(term_color dim "(w15)")"
-    printf '  %-9s %s  %s\n' "issues"    "$(mark "$(jq -r '.dimensions.issues.status' <<<"$o")")"    "$(jq -r '.dimensions.issues.detail' <<<"$o")  $(term_color dim "(w15)")"
-    printf '  %-9s %s  %s\n' "actions"   "$(mark "$(jq -r '.dimensions.actions.status' <<<"$o")")"   "$(jq -r '.dimensions.actions.detail' <<<"$o")  $(term_color dim "(w10)")"
+    term_panel_open github-ops "REPO SCORECARD" "$repo  $vis"
+    term_panel_vert
+    term_panel_line "SCORE  $(term_pip_bar score "$score" 100)  $score/100   GRADE $grade"
+    term_panel_vert
+    term_section "" "dimensions (weight)" 5
+    local d name w
+    for d in "security:w35" "metadata:w25" "release:w15" "issues:w15" "actions:w10"; do
+      name="${d%%:*}"; w="${d##*:}"
+      term_panel_line "$(printf '%-9s %s  %s' "$name" "$(mark "$(jq -r ".dimensions.$name.status" <<<"$o")")" "$(jq -r ".dimensions.$name.detail" <<<"$o")  $(term_color dim "($w)")")"
+    done
     local nf; nf="$(jq -r '.top_fixes | length' <<<"$o")"
     if [ "$nf" -gt 0 ]; then
-      term_header "top fixes (highest-severity first)"
-      jq -r --arg b "$(term_mark warn)" '.top_fixes[] | "     \($b) " + .' <<<"$o"
+      term_panel_vert
+      term_section "" "top fixes (highest-severity first)" "$nf"
+      while IFS= read -r ln; do term_panel_line "$ln"; done < <(jq -r --arg b "$(term_mark warn)" '.top_fixes[] | "\($b) " + .' <<<"$o")
     fi
+    term_panel_vert
+    term_panel_close "$(term_color dim "weighted: security 35  metadata 25  release 15  issues 15  actions 10")" "$health"
   } >&2
 }
 
@@ -392,13 +408,16 @@ if [ -n "$ORG" ]; then
   mapfile -t repos < <(printf '%s' "$list" | jq -r '.[].nameWithOwner' | tr -d '\r')
   [ "${#repos[@]}" -gt 0 ] || skip "no non-archived repos for $ORG"
 
+  human=0; [ "$JSON" -eq 0 ] && human=1
+  [ "$human" -eq 1 ] && { term_panel_open github-ops "REPO SCORECARD" "$ORG  fleet sweep" >&2; term_panel_vert >&2; }
+
   all="[]"; any_findings=0; swept=0; unread=0; below_min=0
   for r in "${repos[@]}"; do
     valid_repo "$r" || continue
     obj="$(score_repo "$r")"; rc=$?
     if [ "$rc" -eq 7 ] || [ -z "$obj" ] || ! printf '%s' "$obj" | jq -e . >/dev/null 2>&1; then
       unread=$((unread+1))
-      [ "$JSON" -eq 1 ] || echo "  $(term_mark unknown)    $r — couldn't read (skipped)" >&2
+      [ "$human" -eq 1 ] && term_panel_line "$(term_mark unknown)  $r — couldn't read (skipped)" >&2
       continue
     fi
     swept=$((swept+1))
@@ -406,13 +425,13 @@ if [ -n "$ORG" ]; then
     all="$(jq -c --argjson o "$obj" '. + [$o]' <<<"$all")"
     sc="$(jq -r '.score' <<<"$obj")"
     if [ -n "$MIN_SCORE" ] && [ "$sc" -lt "$MIN_SCORE" ]; then below_min=$((below_min+1)); fi
-    if [ "$JSON" -eq 0 ]; then
+    if [ "$human" -eq 1 ]; then
       # matrix row: per-dimension colored marks + score + grade.
       m() { case "$(jq -r ".dimensions.$1.status" <<<"$obj")" in
         ok) term_mark ok;; warn) term_mark warn;; gap) term_mark bad;; "n/a") term_mark na;; *) printf ' ';; esac; }
-      printf '  %-34s S:%s M:%s R:%s I:%s A:%s  %3s %s\n' \
+      term_panel_line "$(printf '%-34s S:%s M:%s R:%s I:%s A:%s  %3s %s' \
         "$r" "$(m security)" "$(m metadata)" "$(m release)" "$(m issues)" "$(m actions)" \
-        "$sc" "$(jq -r '.grade' <<<"$obj")" >&2
+        "$sc" "$(jq -r '.grade' <<<"$obj")")" >&2
     fi
   done
 
@@ -447,16 +466,21 @@ if [ -n "$ORG" ]; then
         min_score:(if $minscore=="" then null else ($minscore|tonumber) end),
         schema:"claude-mods.github-ops.repo-scorecard/v1"})}'
   else
+    if [ "$any_findings" -eq 1 ] || [ "$below_min" -gt 0 ]; then health_roll="$(term_health warning "$swept scored")"
+    else health_roll="$(term_health healthy "$swept scored")"; fi
     {
-      term_header "roll-up: $ORG"
-      printf '%s' "$rollup" | jq -r '
-        "  scored: \(.repos_scored)   unreadable: \(.repos_unreadable)",
-        "  avg score: \(.avg_score)   median: \(.median_score)",
-        "  total open security alerts (fleet): \(.total_open_alerts)",
-        "  repos with a GAP — security:\(.failing_by_dimension.security) metadata:\(.failing_by_dimension.metadata) release:\(.failing_by_dimension.release) issues:\(.failing_by_dimension.issues) actions:\(.failing_by_dimension.actions)",
-        "  worst: " + ([ .worst[] | "\(.repo) (\(.score)/\(.grade))" ] | join(", "))'
-      [ -n "$MIN_SCORE" ] && echo "  below --min-score $MIN_SCORE: $below_min repo(s)"
-      echo "  legend: $(term_mark ok)=ok $(term_mark warn)=warn $(term_mark bad)=gap $(term_mark na)=n/a  ·  S=security M=metadata R=release I=issues A=actions"
+      term_panel_vert
+      term_section "" "roll-up: $ORG" "$swept"
+      while IFS= read -r ln; do term_panel_line "$ln"; done < <(printf '%s' "$rollup" | jq -r '
+        "scored: \(.repos_scored)   unreadable: \(.repos_unreadable)",
+        "avg score: \(.avg_score)   median: \(.median_score)",
+        "total open security alerts (fleet): \(.total_open_alerts)",
+        "gaps by dimension  security:\(.failing_by_dimension.security) metadata:\(.failing_by_dimension.metadata) release:\(.failing_by_dimension.release) issues:\(.failing_by_dimension.issues) actions:\(.failing_by_dimension.actions)",
+        "worst: " + ([ .worst[] | "\(.repo) (\(.score)/\(.grade))" ] | join(", "))')
+      [ -n "$MIN_SCORE" ] && term_panel_line "below --min-score $MIN_SCORE: $below_min repo(s)"
+      term_panel_line "$(term_color dim "legend:") $(term_mark ok) ok  $(term_mark warn) warn  $(term_mark bad) gap  $(term_mark na) n/a   $(term_color dim "S M R I A = the five dimensions")"
+      term_panel_vert
+      term_panel_close "" "$health_roll"
     } >&2
   fi
   { [ "$any_findings" -eq 1 ] || [ "$below_min" -gt 0 ]; } && exit "$EX_FINDINGS"

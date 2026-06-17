@@ -1,6 +1,8 @@
 # Terminal Panel Design System
 
-> **Status:** Active — the standard for terminal output across claude-mods shell scripts. Toolkit: [`skills/_lib/term.sh`](../skills/_lib/term.sh). Consumers: `fleet-ops` (panels), `github-ops` audit family (stream-separated `term_init 2` + `term_mark` checklists). New TTY-facing scripts should source `term.sh` rather than hand-roll ANSI.
+> **Status:** Active — the standard for terminal output across claude-mods shell scripts. Toolkit: [`skills/_lib/term.sh`](../skills/_lib/term.sh).
+>
+> **The enclosing panel is the default grammar.** A TTY-facing script wraps its human output in `term_panel_open … term_panel_close` with body rows on the `│` rail (`term_panel_line`, `term_section`, `term_mark`), so the whole toolkit reads as one instrument. Consumers: `fleet-ops` (the panel + commit-rail dashboard) and the `github-ops` audit family (`repo-scorecard` / `check-security-posture` / `check-issues`, stream-separated via `term_init 2` — panel framing on stderr, the `--json`/data product plain on stdout). New scripts source `term.sh` rather than hand-roll ANSI, and reach for the panel by default; the bare-header section style is a deliberate exception, not the norm.
 >
 > **Format:** Adapted from [google-labs-code/design.md](https://github.com/google-labs-code/design.md) — a structured design-spec template — and remapped to bash CLIs. Where that spec talks about screens, components, and tokens, this one talks about panels, sections, and glyphs.
 
