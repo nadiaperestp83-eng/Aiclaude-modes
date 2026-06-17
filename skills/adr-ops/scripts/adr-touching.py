@@ -37,9 +37,57 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import json
+import os
 import re
 import sys
 from pathlib import Path
+
+
+class Term:
+    """Tiny ANSI helper mirroring skills/_lib/term.sh (term.sh is bash-only; per
+    TERMINAL-DESIGN.md §9 the Python port is inline with matching keys/glyphs).
+
+    Honors FORCE_COLOR / NO_COLOR / TERM_ASCII (+ legacy FLEET_ASCII). Color tracks
+    the bound stream's TTY so piped data stays plain; ASCII mode swaps every glyph
+    for its registered proxy (✓✗▲—? -> +x!-?)."""
+
+    _C = {
+        "green": "\033[32m", "yellow": "\033[33m", "orange": "\033[38;5;208m",
+        "red": "\033[31m", "cyan": "\033[36m", "dim": "\033[2m", "off": "\033[0m",
+    }
+    _GLYPH = {"ok": "✓", "bad": "✗", "warn": "▲", "skip": "—", "na": "—", "unknown": "?"}
+    _ASCII = {"ok": "+", "bad": "x", "warn": "!", "skip": "-", "na": "-", "unknown": "?"}
+    _MARK_COLOR = {"ok": "green", "bad": "red", "warn": "orange", "skip": "dim",
+                   "na": "dim", "unknown": "yellow"}
+
+    def __init__(self, stream=sys.stdout):
+        # ASCII fallback: explicit env, OR the bound stream can't encode UTF (e.g. a
+        # Windows cp1252 pipe) — mirrors term.sh's non-UTF-locale rule and prevents a
+        # UnicodeEncodeError when a glyph hits a legacy codec.
+        enc = (getattr(stream, "encoding", "") or "").lower()
+        self.ascii = (
+            os.environ.get("TERM_ASCII") == "1"
+            or os.environ.get("FLEET_ASCII") == "1"
+            or "utf" not in enc
+        )
+        if os.environ.get("FORCE_COLOR"):
+            self.color = True
+        elif (os.environ.get("NO_COLOR") is not None
+              or os.environ.get("TERM") == "dumb"
+              or not getattr(stream, "isatty", lambda: False)()):
+            self.color = False
+        else:
+            self.color = True
+
+    def c(self, name, text):
+        if not self.color:
+            return text
+        return f"{self._C.get(name, '')}{text}{self._C['off']}"
+
+    def mark(self, state):
+        glyph = (self._ASCII if self.ascii else self._GLYPH).get(state, ".")
+        return self.c(self._MARK_COLOR.get(state, ""), glyph)
+
 
 EX_OK = 0
 EX_USAGE = 2
@@ -280,11 +328,20 @@ def main(argv: list[str]) -> int:
         }
         print(json.dumps(envelope, indent=2))
     else:
+        tout = Term(sys.stdout)
+        terr = Term(sys.stderr)
+        status_color = {"accepted": "green", "proposed": "yellow"}
         for r in results:
-            print(f"{r['number']} | {r['status']} | {r['title']} | {r['matched']}")
+            if tout.color:
+                num = tout.c("cyan", r["number"])
+                st = tout.c(status_color.get(r["status"], "dim"), r["status"])
+                print(f"{tout.mark('warn')} {num} | {st} | {r['title']} | {r['matched']}")
+            else:
+                # Plain stream stays byte-identical to the legacy data format.
+                print(f"{r['number']} | {r['status']} | {r['title']} | {r['matched']}")
         if results:
             print(
-                f"--- {len(results)} ADR(s) govern '{args.query}'",
+                f"--- {terr.c('orange', str(len(results)))} ADR(s) govern '{args.query}'",
                 file=sys.stderr,
             )
         else:

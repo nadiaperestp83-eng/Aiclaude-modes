@@ -23,6 +23,20 @@ set -uo pipefail
 
 readonly EX_OK=0 EX_USAGE=2 EX_NOTFOUND=3
 
+# Terminal design system (skills/_lib/term.sh). The index IS this tool's stdout
+# data product (pipeable rows / --json / --output), so framing rides fd 1 and is
+# only rendered as a full panel when stdout is a TTY (or FORCE_COLOR is set for a
+# render check). Piped or --json/--output stays plain. Degrade if the lib is gone.
+__lib="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../_lib" 2>/dev/null && pwd || true)"
+if [ -n "${__lib:-}" ] && [ -f "$__lib/term.sh" ]; then . "$__lib/term.sh"; term_init
+else
+  term_init() { :; }; term_color() { shift; printf '%s' "$*"; }
+  term_panel_open() { :; }; term_panel_close() { :; }; term_panel_vert() { :; }
+  term_section() { :; }; term_summary_line() { :; }; term_leaf_line() { :; }
+  term_health() { shift; printf '%s' "$*"; }; TERM_DOT="|"
+  TERM_TREE_BRANCH="+-"; TERM_TREE_LAST="\`-"
+fi
+
 DIR="docs/adr"
 JSON=0
 OUTPUT=""
@@ -128,6 +142,53 @@ done
 
 count="${#rows_num[@]}"
 
+# Render the index as a full panel (grouped by lifecycle status) for a human at a
+# TTY. Strictly a display layer over the same rows — never the data product.
+render_panel() {
+  local indicator
+  indicator="$count $([ "$count" -eq 1 ] && echo record || echo records)"
+  term_panel_open adr "adr" "$indicator"
+  term_panel_vert
+  term_summary_line "$DIR"
+  term_panel_vert
+
+  local st state i j idxs last conn nm
+  # Canonical lifecycle order; a trailing pass catches any off-spec status so no
+  # row is ever silently dropped from the view.
+  for st in proposed accepted superseded deprecated __other__; do
+    idxs=()
+    for ((i=0; i<count; i++)); do
+      case "$st" in
+        __other__) case "${rows_status[$i]}" in proposed|accepted|superseded|deprecated) ;; *) idxs+=("$i") ;; esac ;;
+        *)         [[ "${rows_status[$i]}" == "$st" ]] && idxs+=("$i") ;;
+      esac
+    done
+    [[ ${#idxs[@]} -eq 0 ]] && continue
+    case "$st" in
+      accepted)   state=OK ;;       # green — in force
+      proposed)   state=PENDING ;;  # yellow — under consideration
+      *)          state=RETIRED ;;  # default fg — superseded / deprecated / off-spec
+    esac
+    local label="$st"; [[ "$st" == "__other__" ]] && label="other"
+    term_section "$state" "$label" "${#idxs[@]}"
+    last=$(( ${#idxs[@]} - 1 ))
+    for j in "${!idxs[@]}"; do
+      i="${idxs[$j]}"
+      conn="$TERM_TREE_BRANCH"; [[ "$j" -eq "$last" ]] && conn="$TERM_TREE_LAST"
+      nm="${rows_num[$i]}  ${rows_title[$i]}"
+      term_leaf_line "$conn" "$nm" "" "" "${rows_date[$i]}"
+    done
+    term_panel_vert
+  done
+
+  term_panel_close "lint ${TERM_DOT} touching ${TERM_DOT} new" "$(term_health healthy "$indicator")"
+}
+
+# Decide whether the human panel applies: never for --json/--output; only when
+# stdout is a terminal (or FORCE_COLOR forces a render for verification).
+PANEL=0
+if [[ "$JSON" -eq 0 && -z "$OUTPUT" ]] && { [ -t 1 ] || [ -n "${FORCE_COLOR:-}" ]; }; then PANEL=1; fi
+
 if [[ "$JSON" -eq 1 ]]; then
   # Build JSON without external deps (escape backslash + double-quote).
   esc() { local s="${1//\\/\\\\}"; s="${s//\"/\\\"}"; printf '%s' "$s"; }
@@ -155,6 +216,8 @@ elif [[ -n "$OUTPUT" ]]; then
   } > "$tmp" || { rm -f "$tmp"; printf 'error: failed to write %s\n' "$tmp" >&2; exit 1; }
   mv -f "$tmp" "$OUTPUT" || { rm -f "$tmp"; printf 'error: failed to move into place: %s\n' "$OUTPUT" >&2; exit 1; }
   printf 'wrote %d-row index to %s\n' "$count" "$OUTPUT" >&2
+elif [[ "$PANEL" -eq 1 ]]; then
+  render_panel
 else
   for ((i=0; i<count; i++)); do
     printf '%s | %s | %s | %s\n' \

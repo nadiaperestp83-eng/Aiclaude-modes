@@ -66,6 +66,10 @@ TERM_GLYPH_TIP=""
 # Pointer/arrow glyph (→ / ->) — for "problem → remedy" leads.
 TERM_ARROW=""
 
+# Soft separator (· / |) — for joining hotkeys/labels ("R refresh · L land").
+# ASCII-safe so authored footer/summary strings stay pure under TERM_ASCII=1.
+TERM_DOT=""
+
 # Spinner frame banks (set by term_init; arrays keep order).
 TERM_SPIN_WORKING=()
 TERM_SPIN_HEARTBEAT=()
@@ -120,6 +124,7 @@ term_init() {
     TERM_GLYPH_ALERT="!"
     TERM_GLYPH_TIP="(i)"
     TERM_ARROW="->"
+    TERM_DOT="|"
     TERM_SPIN_WORKING=('|' '/' '-' '\')
     TERM_SPIN_HEARTBEAT=('.' ':' '*' ':')
   else
@@ -140,6 +145,7 @@ term_init() {
     TERM_GLYPH_ALERT="▲"
     TERM_GLYPH_TIP="💡"
     TERM_ARROW="→"
+    TERM_DOT="·"
     TERM_SPIN_WORKING=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
     TERM_SPIN_HEARTBEAT=('·' '∙' '•' '●' '•' '∙')
   fi
@@ -195,6 +201,10 @@ __term_lookup() {
     BRAND::audit)               entry="🔎|[A]" ;;
     BRAND::supply-chain)        entry="🛡|[S]" ;;
     BRAND::net-ops)             entry="📡|[N]" ;;
+    BRAND::adr)                 entry="📒|[A]" ;;
+    BRAND::terraform)           entry="🏗|[T]" ;;
+    BRAND::claude)              entry="✶|[C]" ;;
+    BRAND::play)                entry="🎭|[P]" ;;
     HEALTH_GLYPH::healthy)      entry="•|(+)" ;;
     HEALTH_GLYPH::pending)      entry="•|(.)" ;;
     HEALTH_GLYPH::warning)      entry="•|(!)" ;;
@@ -409,6 +419,24 @@ term_toast() {
     "$(term_color dim "$TERM_TREE_VERT")" \
     "$(term_color dim "$TERM_TREE_BRANCH$TERM_PANEL_HRULE")" \
     "$(term_color cyan "$emoji $*")"
+}
+
+# term_status_row <mark_state> <label> [value]  — §5.3 status-panel checklist row
+#   │   ✓  label                          value
+# The no-tree counterpart to term_leaf_line: a flat row riding the panel rail,
+# led by a term_mark glyph (ok/bad/warn/skip/na/unknown). `value` is dim, right of
+# the label column. Use inside a status panel (a PR's checks, a health summary).
+term_status_row() {
+  local mark label value
+  mark="$(term_mark "$1")"; label=$2; value=${3:-}
+  if [[ -n "$value" ]]; then
+    printf '%s   %s  %-30s %s\n' \
+      "$(term_color dim "$TERM_TREE_VERT")" "$mark" "$(term_truncate "$label" 30)" \
+      "$(term_color dim "$value")"
+  else
+    printf '%s   %s  %s\n' \
+      "$(term_color dim "$TERM_TREE_VERT")" "$mark" "$label"
+  fi
 }
 
 # term_alert <severity> <text>  — ▲ message (orange/red), as a sub-row

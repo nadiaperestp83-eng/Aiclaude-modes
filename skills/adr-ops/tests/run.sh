@@ -358,6 +358,60 @@ expect_has "--output lists a row" "ADR-001" "$outc"
 # --json + --output is a usage error -> 2
 bash "$INDEX" --dir "$CLEAN" --json --output "$SB/x.md" >/dev/null 2>&1; expect_exit "index --json+--output -> 2" 2 $?
 
+# ── terminal design system (term.sh adoption + ASCII fallback) ─────────────
+echo "-- terminal design system --"
+
+# Bash scripts adopt the shared toolkit (full panel grammar), not hand-rolled ANSI.
+for s in "$INDEX" "$NEW" "$INIT"; do
+  b="$(basename "$s")"
+  if grep -q '_lib/term.sh' "$s"; then ok "$b sources _lib/term.sh"; else no "$b does not source _lib/term.sh"; fi
+done
+# Python scripts carry the inline Term helper (term.sh is bash-only; spec §9).
+for s in "$LINT" "$TOUCHING"; do
+  b="$(basename "$s")"
+  if grep -q 'class Term' "$s"; then ok "$b carries inline Term helper"; else no "$b missing inline Term helper"; fi
+done
+
+# term.sh primitives are pure ASCII under TERM_ASCII=1 (design principle #3).
+LIBTERM="$SKILL/../_lib/term.sh"
+if [[ -f "$LIBTERM" ]]; then
+  ok "term.sh present"
+  prims="$(TERM_ASCII=1 LT="$LIBTERM" bash -c '. "$LT"; term_init; printf "%s%s%s%s%s" \
+    "$(term_mark ok)" "$(term_mark bad)" "$(term_status_row ok lbl val)" \
+    "$TERM_DOT" "$(term_panel_open adr adr x)"')"
+  if printf '%s' "$prims" | LC_ALL=C grep -q '[^[:print:][:cntrl:]]'; then
+    no "term.sh TERM_ASCII=1 primitives still emit non-ASCII bytes"
+  else ok "term.sh TERM_ASCII=1 primitives are pure ASCII"; fi
+else
+  no "term.sh missing at $LIBTERM"
+fi
+
+# adr-index panel: full bordered frame under FORCE_COLOR, pure ASCII under TERM_ASCII=1.
+PB="$SB/panel"; mkdir -p "$PB"
+make_adr "$PB" 001 alpha accepted 2026-01-01 "[]" "[]"
+pout="$(TERM_ASCII=1 FORCE_COLOR=1 bash "$INDEX" --dir "$PB" 2>/dev/null)"
+if printf '%s' "$pout" | LC_ALL=C grep -q '[^[:print:][:cntrl:]]'; then
+  no "adr-index panel emits non-ASCII under TERM_ASCII=1"
+else ok "adr-index panel is pure ASCII under TERM_ASCII=1"; fi
+case "$pout" in *"+-- "*) ok "adr-index renders the full panel frame";; *) no "adr-index panel frame missing";; esac
+# Piped (non-TTY, no FORCE_COLOR) stays plain data rows — the stdout contract.
+pp="$(bash "$INDEX" --dir "$PB" 2>/dev/null)"
+case "$pp" in
+  *$'\033'*) no "piped adr-index leaked ANSI into the data stream";;
+  *"ADR-001 | accepted"*) ok "piped adr-index stays plain data rows";;
+  *) no "piped adr-index lost its data row";;
+esac
+
+# Python inline Term: colorizes under FORCE_COLOR, pure ASCII under TERM_ASCII=1,
+# byte-plain when piped (the data contract).
+pylint="$(TERM_ASCII=1 FORCE_COLOR=1 "$PYTHON" "$LINT" --dir "$DUP" 2>/dev/null)"
+if printf '%s' "$pylint" | LC_ALL=C grep -q '[^[:print:][:cntrl:]]'; then
+  no "adr-lint colored output emits non-ASCII under TERM_ASCII=1"
+else ok "adr-lint colored output is pure ASCII under TERM_ASCII=1"; fi
+case "$pylint" in *$'\033'*) ok "adr-lint colorizes under FORCE_COLOR";; *) no "adr-lint did not colorize under FORCE_COLOR";; esac
+plain_lint="$("$PYTHON" "$LINT" --dir "$DUP" 2>/dev/null)"
+case "$plain_lint" in *$'\033'*) no "piped adr-lint leaked ANSI";; *) ok "piped adr-lint stays plain data";; esac
+
 # ── summary ────────────────────────────────────────────────────────────────
 echo "=== $PASS passed, $FAIL failed ==="
 [[ "$FAIL" -eq 0 ]] || exit 1

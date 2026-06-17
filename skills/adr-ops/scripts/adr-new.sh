@@ -23,6 +23,18 @@ set -uo pipefail
 # ── exit-code constants ────────────────────────────────────────────────────
 readonly EX_OK=0 EX_USAGE=2 EX_NOTFOUND=3 EX_PRECOND=5
 
+# Terminal design system (skills/_lib/term.sh). stdout = the created file path
+# (data); the creation summary + supersession reminders frame on stderr, so detect
+# color on fd 2. Degrade to plain stderr lines if the shared lib is unreachable.
+__lib="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../_lib" 2>/dev/null && pwd || true)"
+if [ -n "${__lib:-}" ] && [ -f "$__lib/term.sh" ]; then . "$__lib/term.sh"; term_init 2
+else
+  term_panel_open() { :; }; term_panel_close() { :; }; term_panel_vert() { :; }
+  term_status_row() { shift; printf '  - %s %s\n' "$1" "${2:-}"; }
+  term_alert() { shift; printf '  ! %s\n' "$*"; }
+  term_color() { shift; printf '%s' "$*"; }; TERM_DOT="|"
+fi
+
 # ── defaults ───────────────────────────────────────────────────────────────
 DIR="docs/adr"
 TITLE=""
@@ -180,11 +192,17 @@ content="$(awk \
 # ── dry-run: print and stop ────────────────────────────────────────────────
 if [[ "$DRY_RUN" -eq 1 ]]; then
   printf '%s\n' "$TARGET"
-  printf '%s\n' "----- 8< ----- (dry-run: nothing written) -----" >&2
+  {
+    term_panel_open adr "adr ${TERM_DOT} new (dry-run)" "ADR-$NNN"
+    term_panel_vert
+    term_status_row skip "would write  $(basename "$TARGET")" "status: $STATUS ${TERM_DOT} $DATE"
+    if [[ ${#SUPERSEDES_LIST[@]} -gt 0 ]]; then
+      term_alert warning "supersedes ${SUPERSEDES_LIST[*]} — flip status: superseded + superseded-by: [ADR-$NNN] in the same commit"
+    fi
+    term_panel_vert
+    term_panel_close "nothing written" ""
+  } >&2
   printf '%s\n' "$content"
-  if [[ ${#SUPERSEDES_LIST[@]} -gt 0 ]]; then
-    printf 'reminder: this ADR supersedes %s — flip the old record(s) status: superseded + superseded-by: [ADR-%s] in the same commit.\n' "${SUPERSEDES_LIST[*]}" "$NNN" >&2
-  fi
   exit "$EX_OK"
 fi
 
@@ -194,12 +212,14 @@ printf '%s\n' "$content" > "$tmp" || { printf 'error: failed to write %s\n' "$tm
 mv -f "$tmp" "$TARGET" || { rm -f "$tmp"; printf 'error: failed to move into place: %s\n' "$TARGET" >&2; exit 1; }
 
 printf '%s\n' "$TARGET"
-printf 'created ADR-%s (status: %s, date: %s)\n' "$NNN" "$STATUS" "$DATE" >&2
 
 # ── supersession handling ──────────────────────────────────────────────────
+# Apply the flips first (collecting outcome rows), then frame the whole event as a
+# single status panel on stderr. stdout already carries the created path (data).
+sup_rows=()    # "state\tlabel\tvalue" — rendered as term_status_row
+sup_alerts=()  # plain text — rendered as term_alert warning
 if [[ ${#SUPERSEDES_LIST[@]} -gt 0 ]]; then
   for old in "${SUPERSEDES_LIST[@]}"; do
-    # Find the old record file by number prefix.
     oldfile=""
     shopt -s nullglob
     for f in "$DIR/$old"-*.md; do oldfile="$f"; break; done
@@ -207,21 +227,41 @@ if [[ ${#SUPERSEDES_LIST[@]} -gt 0 ]]; then
 
     if [[ "$APPLY_SUPERSEDE" -eq 1 ]]; then
       if [[ -z "$oldfile" || ! -f "$oldfile" ]]; then
-        printf 'warning: --apply-supersede: could not find %s in %s — flip it by hand.\n' "$old" "$DIR" >&2
+        sup_alerts+=("--apply-supersede: could not find $old in $DIR — flip it by hand")
         continue
       fi
       # Flip frontmatter ONLY: status -> superseded, superseded-by -> [ADR-NNN].
       otmp="$oldfile.tmp.$$"
-      sed -E \
+      if sed -E \
         -e "0,/^status: .*/s//status: superseded/" \
         -e "0,/^superseded-by: .*/s//superseded-by: [ADR-$NNN]/" \
-        "$oldfile" > "$otmp" && mv -f "$otmp" "$oldfile" || { rm -f "$otmp"; printf 'warning: failed to flip %s — do it by hand.\n' "$oldfile" >&2; }
-      printf 'flipped %s -> status: superseded, superseded-by: [ADR-%s]\n' "$(basename "$oldfile")" "$NNN" >&2
+        "$oldfile" > "$otmp" && mv -f "$otmp" "$oldfile"; then
+        sup_rows+=("ok"$'\t'"flipped $(basename "$oldfile")"$'\t'"-> superseded, superseded-by: [ADR-$NNN]")
+      else
+        rm -f "$otmp"
+        sup_alerts+=("failed to flip $oldfile — do it by hand")
+      fi
     else
-      printf 'reminder: this ADR supersedes %s — in the SAME commit, flip %s frontmatter to status: superseded + superseded-by: [ADR-%s]. (Re-run with --apply-supersede to do it automatically.)\n' \
-        "$old" "${oldfile:-$old}" "$NNN" >&2
+      sup_alerts+=("supersedes $old — in the SAME commit flip ${oldfile:-$old} to status: superseded + superseded-by: [ADR-$NNN] (or re-run with --apply-supersede)")
     fi
   done
 fi
+
+{
+  term_panel_open adr "adr ${TERM_DOT} new" "ADR-$NNN"
+  term_panel_vert
+  term_status_row ok "created  $(basename "$TARGET")" "status: $STATUS ${TERM_DOT} $DATE"
+  for row in "${sup_rows[@]:-}"; do
+    [[ -z "$row" ]] && continue
+    IFS=$'\t' read -r st lbl val <<<"$row"
+    term_status_row "$st" "$lbl" "$val"
+  done
+  for a in "${sup_alerts[@]:-}"; do
+    [[ -z "$a" ]] && continue
+    term_alert warning "$a"
+  done
+  term_panel_vert
+  term_panel_close "then: adr-lint before committing" ""
+} >&2
 
 exit "$EX_OK"

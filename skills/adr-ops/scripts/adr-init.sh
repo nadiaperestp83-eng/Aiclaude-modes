@@ -22,6 +22,17 @@ set -uo pipefail
 
 readonly EX_OK=0 EX_USAGE=2 EX_PRECOND=5
 
+# Terminal design system (skills/_lib/term.sh). stdout = paths created (data); the
+# bootstrap summary frames on stderr, so detect color on fd 2. Degrade to plain
+# stderr lines if the shared lib is unreachable.
+__lib="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../_lib" 2>/dev/null && pwd || true)"
+if [ -n "${__lib:-}" ] && [ -f "$__lib/term.sh" ]; then . "$__lib/term.sh"; term_init 2
+else
+  term_panel_open() { :; }; term_panel_close() { :; }; term_panel_vert() { :; }
+  term_status_row() { shift; printf '  - %s %s\n' "$1" "${2:-}"; }
+  term_color() { shift; printf '%s' "$*"; }; TERM_DOT="|"
+fi
+
 DIR="docs/adr"
 FIRST_TITLE="Record architecture decisions"
 DRY_RUN=0
@@ -117,18 +128,29 @@ EOF
 
 # ── dry-run: describe, write nothing ────────────────────────────────────────
 if [[ "$DRY_RUN" -eq 1 ]]; then
-  printf '%s\n' "----- 8< ----- (dry-run: nothing written) -----" >&2
   [[ -d "$DIR" ]] || printf 'would create directory: %s\n' "$DIR"
   printf 'would scaffold: %s\n' "$DIR/ADR-001-<slug-from-title>.md"
   printf 'would write:    %s\n' "$README_PATH"
-  printf '(first ADR title: %s)\n' "$FIRST_TITLE" >&2
+  {
+    term_panel_open adr "adr ${TERM_DOT} init (dry-run)" "$DIR"
+    term_panel_vert
+    [[ -d "$DIR" ]] || term_status_row skip "would create dir" "$DIR"
+    term_status_row skip "would scaffold ADR-001" "title: $FIRST_TITLE"
+    term_status_row skip "would write README.md" ""
+    term_panel_vert
+    term_panel_close "nothing written" ""
+  } >&2
   exit "$EX_OK"
 fi
+
+# Bootstrap outcome rows, collected then framed as one status panel on stderr.
+init_rows=()   # "state\tlabel\tvalue"
 
 # ── create the directory ────────────────────────────────────────────────────
 if [[ ! -d "$DIR" ]]; then
   mkdir -p "$DIR" || { printf 'error: failed to create %s\n' "$DIR" >&2; exit 1; }
   printf '%s\n' "$DIR"
+  init_rows+=("ok"$'\t'"created dir"$'\t'"$DIR")
 fi
 
 # ── scaffold ADR-001 via adr-new.sh (shares the canonical template) ─────────
@@ -138,8 +160,9 @@ new_out="$(bash "$ADR_NEW" --dir "$DIR" --number 001 --title "$FIRST_TITLE" 2>/d
 new_rc=$?
 if [[ "$new_rc" -eq 0 ]]; then
   printf '%s\n' "$new_out"
+  init_rows+=("ok"$'\t'"scaffolded $(basename "$new_out")"$'\t'"title: $FIRST_TITLE")
 elif [[ "$new_rc" -eq 5 ]]; then
-  printf 'note: ADR-001 already present — left as-is.\n' >&2
+  init_rows+=("skip"$'\t'"ADR-001 already present"$'\t'"left as-is")
 else
   printf 'error: adr-new.sh failed (exit %d) scaffolding ADR-001\n' "$new_rc" >&2
   exit 1
@@ -147,13 +170,23 @@ fi
 
 # ── write the generated README (atomic; never clobber) ──────────────────────
 if [[ -e "$README_PATH" ]]; then
-  printf 'note: %s already exists — left as-is.\n' "$README_PATH" >&2
+  init_rows+=("skip"$'\t'"README.md already present"$'\t'"left as-is")
 else
   tmp="$README_PATH.tmp.$$"
   readme_content > "$tmp" || { rm -f "$tmp"; printf 'error: failed to write %s\n' "$tmp" >&2; exit 1; }
   mv -f "$tmp" "$README_PATH" || { rm -f "$tmp"; printf 'error: failed to move into place: %s\n' "$README_PATH" >&2; exit 1; }
   printf '%s\n' "$README_PATH"
+  init_rows+=("ok"$'\t'"wrote README.md"$'\t'"$README_PATH")
 fi
 
-printf 'bootstrapped ADRs in %s — fill in ADR-001, then run adr-lint before committing.\n' "$DIR" >&2
+{
+  term_panel_open adr "adr ${TERM_DOT} init" "$DIR"
+  term_panel_vert
+  for row in "${init_rows[@]}"; do
+    IFS=$'\t' read -r st lbl val <<<"$row"
+    term_status_row "$st" "$lbl" "$val"
+  done
+  term_panel_vert
+  term_panel_close "fill in ADR-001 ${TERM_DOT} then adr-lint before committing" ""
+} >&2
 exit "$EX_OK"
