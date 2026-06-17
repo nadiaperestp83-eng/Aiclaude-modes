@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# Outbound-connection ("phone-home") monitor for Windows — exfiltration tripwire.
+# Outbound-connection ("phone-home") monitor for Windows - exfiltration tripwire.
 #
 # Maps every outbound TCP connection to its owning process, parent chain, and
 # Authenticode signing status, then flags the patterns the 2026 npm-worm family
@@ -57,6 +57,13 @@ $SCHEMA = 'claude-mods.supply-chain-defense.phone-home-monitor/v1'
 $TASK_NAME = 'SupplyChain-PhoneHomeMonitor'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
+# Shared terminal design system (skills/_lib/term.ps1) - colorized, ASCII-aware
+# stderr framing; the TSV/--json data product stays plain on stdout. term.ps1
+# honors NO_COLOR / FORCE_COLOR / TERM_ASCII. Degrade to plain if the lib is gone.
+$__scTermLib = Join-Path $ScriptDir '..\..\_lib\term.ps1'
+if (Test-Path $__scTermLib) { . $__scTermLib; Initialize-Term }
+else { function Get-TermColor { param($Token, $Text) return $Text } }
+
 function Write-Info([string]$msg) { if (-not $Quiet) { [Console]::Error.WriteLine($msg) } }
 
 function Show-Help {
@@ -90,7 +97,7 @@ if (Test-Path $iocPath) {
             if ($e.PSObject.Properties['ips'])     { $iocIps     += @($e.ips     | ForEach-Object { @{ value = $_; id = $e.id } }) }
         }
     } catch {
-        [Console]::Error.WriteLine("ERROR: IOC catalog unparseable: $iocPath — $($_.Exception.Message)")
+        [Console]::Error.WriteLine("ERROR: IOC catalog unparseable: $iocPath - $($_.Exception.Message)")
         if ($Json) { Write-Output (@{ error = @{ code = 'VALIDATION'; message = "IOC catalog unparseable: $iocPath" } } | ConvertTo-Json -Compress) }
         exit 4
     }
@@ -136,7 +143,7 @@ function Get-DomainAgeDays([string]$hostname) {
         $r = Invoke-RestMethod -Uri "https://rdap.org/domain/$domain" -TimeoutSec 5
         $reg = $r.events | Where-Object { $_.eventAction -eq 'registration' } | Select-Object -First 1
         if ($reg) { $age = [int]((Get-Date).ToUniversalTime() - [datetime]$reg.eventDate).TotalDays }
-    } catch { Write-Info "  [rdap unavailable] $domain — domain age unknown (advisory only)" }
+    } catch { Write-Info "  [rdap unavailable] $domain - domain age unknown (advisory only)" }
     $rdapCache[$domain] = $age
     return $age
 }
@@ -300,10 +307,10 @@ function Write-Report($findings, [string]$source, [int]$connCount) {
         }
     }
     Write-Info ''
-    Write-Info "Source: $source — $connCount outbound connection(s) examined, $(@($findings).Count) finding(s), $($counted.Count) at medium+ severity."
+    Write-Info "Source: $source - $connCount outbound connection(s) examined, $(@($findings).Count) finding(s), $($counted.Count) at medium+ severity."
     if ($counted.Count -gt 0) {
         Write-Info 'Triage: confirm the process is something you launched; check parent chain; if it is a'
-        Write-Info 'package-manager child or IOC hit, treat as an incident — isolate, rotate credentials,'
+        Write-Info 'package-manager child or IOC hit, treat as an incident - isolate, rotate credentials,'
         Write-Info 'run integrity-audit.sh + exposure-check.py. See references/phone-home-monitoring.md.'
     }
     if ($counted.Count -gt 0) { exit $EXIT_FINDING } else { exit $EXIT_OK }
@@ -330,7 +337,7 @@ if ($Status) {
     $fwLog = try { @(Get-NetFirewallProfile | Where-Object { $_.LogAllowed -eq 'True' }).Count } catch { 'unknown' }
     $task = try { [bool](Get-ScheduledTask -TaskName $TASK_NAME -ErrorAction SilentlyContinue) } catch { $false }
     $rows = [ordered]@{
-        sysmon_eid3        = if ($sysmonOk) { 'available (preferred source — use -Sysmon)' } else { 'not installed (see references/phone-home-monitoring.md to wire it)' }
+        sysmon_eid3        = if ($sysmonOk) { 'available (preferred source - use -Sysmon)' } else { 'not installed (see references/phone-home-monitoring.md to wire it)' }
         wfp_audit_5156     = $wfp
         firewall_log_allowed_profiles = $fwLog
         tcp_table_polling  = 'available (default source)'
@@ -377,7 +384,7 @@ if ($InputJson) {
 
 if ($Sysmon) {
     if (-not (Test-SysmonPresent)) {
-        Write-Info 'ERROR: Sysmon is not installed — Event ID 3 (network connections) unavailable.'
+        Write-Info 'ERROR: Sysmon is not installed - Event ID 3 (network connections) unavailable.'
         Write-Info 'Install it with a curated config (the preferred continuous source):'
         Write-Info '  winget install Microsoft.Sysinternals.Sysmon'
         Write-Info '  curl -o sysmonconfig.xml https://raw.githubusercontent.com/SwiftOnSecurity/sysmon-config/master/sysmonconfig-export.xml'
@@ -385,7 +392,7 @@ if ($Sysmon) {
         Write-Info 'See references/phone-home-monitoring.md for the full evaluation.'
         exit $EXIT_MISSING_DEP
     }
-    Write-Info "=== phone-home monitor (Sysmon EID 3, last $MaxEvents events) ==="
+    Write-Info (Get-TermColor cyan "=== phone-home monitor (Sysmon EID 3, last $MaxEvents events) ===")
     $conns = Get-SysmonConnections
     $findings = [System.Collections.Generic.List[object]]::new()
     foreach ($c in $conns) { foreach ($f in (Get-Findings $c)) { $findings.Add($f) } }
@@ -393,7 +400,7 @@ if ($Sysmon) {
 }
 
 if ($Watch) {
-    Write-Info "=== phone-home monitor (watch mode, every ${IntervalSeconds}s$(if ($DurationMinutes) { ", for ${DurationMinutes}m" })) ==="
+    Write-Info (Get-TermColor cyan "=== phone-home monitor (watch mode, every ${IntervalSeconds}s$(if ($DurationMinutes) { ", for ${DurationMinutes}m" })) ===")
     Write-Info "Findings log: $LogPath"
     $seen = @{}; $total = 0
     $deadline = if ($DurationMinutes -gt 0) { (Get-Date).AddMinutes($DurationMinutes) } else { [datetime]::MaxValue }
@@ -419,7 +426,7 @@ if ($Watch) {
 # default: one snapshot
 Write-Info '=== phone-home monitor (TCP-table snapshot) ==='
 if (-not (Test-SysmonPresent)) {
-    Write-Info 'note: Sysmon not installed — polling misses short-lived connections. Prefer -Sysmon once wired.'
+    Write-Info 'note: Sysmon not installed - polling misses short-lived connections. Prefer -Sysmon once wired.'
 }
 $conns = Get-SnapshotConnections
 $findings = [System.Collections.Generic.List[object]]::new()

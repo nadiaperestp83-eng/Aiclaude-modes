@@ -11,34 +11,43 @@ $script:EXIT_PRECONDITION = 5
 $script:EXIT_TIMEOUT      = 6
 $script:EXIT_UNAVAILABLE  = 7
 
+# Shared terminal design system (skills/_lib/term.ps1) — colorized, ASCII-aware
+# framing on stderr (data stays plain on stdout via Write-Data). term.ps1 honors
+# NO_COLOR / FORCE_COLOR / TERM_ASCII. Degrade to plain text if the lib is gone.
+$script:__WinTermLib = Join-Path $PSScriptRoot '..\..\..\_lib\term.ps1'
+if (Test-Path $script:__WinTermLib) {
+    . $script:__WinTermLib
+    Initialize-Term
+    $script:__WinHaveTerm = $true
+} else {
+    $script:__WinHaveTerm = $false
+    function Get-TermColor { param($Token, $Text) return $Text }
+}
+
 function Write-Log {
-    # All logs to stderr — never pollute stdout
+    # All logs to stderr — never pollute stdout. Colorized via term.ps1 (the [TAG]
+    # text stays literal/greppable; color is amplification, never the only signal).
     param(
         [Parameter(Mandatory)][ValidateSet('INFO','WARN','ERROR','PASS','FAIL','DEBUG')]$Level,
         [Parameter(Mandatory)][string]$Message
     )
-    $color = switch ($Level) {
-        'PASS'  { 'Green' }
-        'FAIL'  { 'Red' }
-        'ERROR' { 'Red' }
-        'WARN'  { 'Yellow' }
-        'INFO'  { 'Cyan' }
-        'DEBUG' { 'DarkGray' }
+    $token = switch ($Level) {
+        'PASS'  { 'green' }
+        'FAIL'  { 'red' }
+        'ERROR' { 'red' }
+        'WARN'  { 'orange' }
+        'INFO'  { 'cyan' }
+        'DEBUG' { 'dim' }
     }
-    [Console]::Error.WriteLine("[$Level] $Message")
-    # Re-emit colorised version when stderr is a TTY (for human readability)
-    if ([Console]::IsErrorRedirected -eq $false) {
-        # Can't easily colorise stderr in PS — accept plain text, color reserved for TTY-only contexts
-    }
+    [Console]::Error.WriteLine((Get-TermColor $token "[$Level]") + " $Message")
 }
 
 function Write-Section {
+    # Cyan section header (no long === rules — design principle #4: whitespace,
+    # not rules, separates sections). ASCII-aware via term.ps1.
     param([Parameter(Mandatory)][string]$Title)
-    $line = '=' * 60
     [Console]::Error.WriteLine("")
-    [Console]::Error.WriteLine($line)
-    [Console]::Error.WriteLine("  $Title")
-    [Console]::Error.WriteLine($line)
+    [Console]::Error.WriteLine((Get-TermColor cyan "== $Title =="))
 }
 
 function Write-Data {

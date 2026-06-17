@@ -23,8 +23,10 @@
     Spec: ../docs/TERMINAL-DESIGN.md.
 #>
 
-# Guard against double-sourcing
-if ($Script:__TermPs1Loaded) { return }
+# Guard against double-sourcing. Test-Path keeps this safe under
+# Set-StrictMode -Version Latest, where reading an unset variable throws (this
+# lib is dot-sourced into strict-mode consumer scripts, e.g. phone-home-monitor).
+if ((Test-Path Variable:Script:__TermPs1Loaded) -and $Script:__TermPs1Loaded) { return }
 $Script:__TermPs1Loaded = $true
 
 # ─── Globals (populated by Initialize-Term) ──────────────────────────────────
