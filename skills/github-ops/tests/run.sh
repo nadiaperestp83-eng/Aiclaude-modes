@@ -86,5 +86,56 @@ if grep -nE '\-X (PUT|PATCH|POST|DELETE)' "$SP" | grep -vqE '_cmd='; then
 else ok "sp: all mutating verbs are emitted text only"; fi
 
 echo
+echo "-- repo-scorecard.sh (offline contract + orchestration + read-only proof) --"
+
+RS="$SCRIPTS/repo-scorecard.sh"
+
+bash -n "$RS" && ok "rs: bash -n clean" || no "rs: bash -n"
+
+bash "$RS" --help >/dev/null 2>&1; expect "rs: --help" 0 $?
+if bash "$RS" --help 2>&1 | grep -q "Examples:"; then ok "rs: --help has EXAMPLES"
+else no "rs: --help missing EXAMPLES"; fi
+# The scoring rubric must be documented in the header (transparent, auditable).
+if bash "$RS" --help 2>&1 | grep -q "SCORING MODEL"; then ok "rs: --help documents SCORING MODEL"
+else no "rs: --help missing SCORING MODEL"; fi
+
+bash "$RS" --frobnicate >/dev/null 2>&1; expect "rs: unknown flag -> usage" 2 $?
+# Malformed OWNER/REPO is a usage error, never a network call.
+bash "$RS" --repo "not-a-valid-spec" >/dev/null 2>&1; expect "rs: bad --repo shape -> usage" 2 $?
+# --repo and --org are mutually exclusive.
+bash "$RS" --repo a/b --org c >/dev/null 2>&1; expect "rs: --repo + --org -> usage" 2 $?
+# --min-score must be an integer.
+bash "$RS" --min-score xx >/dev/null 2>&1; expect "rs: bad --min-score -> usage" 2 $?
+
+# Non-github remote must skip with exit 7 and NEVER hit the network.
+( cd "$T" && bash "$RS" --remote origin >/dev/null 2>&1 ); expect "rs: non-github remote -> unavailable" 7 $?
+# Missing remote -> skip 7.
+( cd "$T" && bash "$RS" --remote nope-xyz >/dev/null 2>&1 ); expect "rs: missing remote -> unavailable" 7 $?
+
+# Orchestration: it MUST call the sibling auditors by name (the reuse is the point).
+if grep -q "check-security-posture.sh" "$RS"; then ok "rs: references check-security-posture.sh"
+else no "rs: does not reference check-security-posture.sh"; fi
+if grep -q "check-issues.sh" "$RS"; then ok "rs: references check-issues.sh"
+else no "rs: does not reference check-issues.sh"; fi
+
+# Read-only guarantee: no executed mutating gh verb anywhere. Every gh call must
+# be a GET (the remediation pointers it prints are text, not executed). Assert no
+# `gh api -X PUT/PATCH/POST/DELETE` and no `gh repo edit`/`gh release create` etc.
+if grep -E '\bgh (api )?-X (PUT|PATCH|POST|DELETE)' "$RS" | grep -vqE '^\s*#'; then
+  no "rs: found an executed mutating gh -X call (must be read-only)"
+else ok "rs: no executed mutating gh -X call (read-only)"; fi
+# Belt-and-braces: every `runner gh …` (the only network executor) is a read-only
+# subcommand — `gh api <GET path>` or `gh repo list`. No mutating subcommand runs.
+if grep -nE 'runner gh ' "$RS" | grep -Evq 'runner gh (api|repo list)'; then
+  no "rs: a 'runner gh' call uses a non-read-only subcommand"
+else ok "rs: every executed 'runner gh' is read-only (api / repo list)"; fi
+# And mutating gh subcommands, where they appear, are inside printed fix strings only
+# (the remediation pointers), never executed. Verify they sit on addfix/echo lines.
+if grep -nE 'gh (release create|repo edit|release delete|secret set|pr merge)' "$RS" \
+     | grep -vqE 'addfix|→'; then
+  no "rs: a mutating gh subcommand appears outside a printed remediation string"
+else ok "rs: mutating gh subcommands only appear as printed remediation text"; fi
+
+echo
 echo "=== $pass passed, $fail failed ==="
 [ "$fail" -eq 0 ]

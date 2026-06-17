@@ -35,6 +35,16 @@ feature releases live in the README "Recent Updates" section.
   conversion done). docs/ top level is now 8 load-bearing docs + `archive/` + `references/`.
 
 ### Added
+- **github-ops `repo-scorecard.sh`** (the audit capstone) - one read-only command
+  for a scored repo-health report, fleet-aware. **Orchestrates** the existing
+  auditors (`check-security-posture.sh`, `check-issues.sh`) rather than
+  re-implementing them, and rolls five dimensions — security (w35), metadata
+  (w25), release-consistency (w15), open-issues (w15), latest-Actions-run (w10) —
+  into a 0–100 score + A–F grade with the top-3 fixes per repo. `--org` sweeps
+  every non-archived repo into a matrix + roll-up (avg/median, worst repos, fleet
+  open-alert total); `--min-score N` is a CI gate (exit 10 below N). An unreadable
+  dimension scores zero ("n/a"), never a false-healthy. Read-only (CI-asserted);
+  +15 test assertions (34 total). Now the headline of github-ops `audit` mode.
 - **github-ops security-posture auditor** - `scripts/check-security-posture.sh`:
   read-only audit of a repo's GitHub security settings (Dependabot alerts +
   security updates, secret scanning + push protection, code scanning, private

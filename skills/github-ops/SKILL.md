@@ -167,9 +167,20 @@ Triggered by: "ship a release", "cut a release", "release v0.X.Y", "publish upda
 
 ### Mode `audit` — read-only checklist
 
-Triggered by: "audit github repo", "is this repo ready to publish", "check repo metadata", "score this repo".
+Triggered by: "audit github repo", "is this repo ready to publish", "check repo metadata", "score this repo", "how healthy is this repo", "score the fleet".
 
-Read-only — produces a report without making changes. See `references/metadata-checklist.md` for the complete checklist; the SKILL enforces these:
+**Headline: `scripts/repo-scorecard.sh` — one command for a scored repo/fleet health report.** It orchestrates the two read-only auditors (`check-security-posture.sh` + `check-issues.sh`) and adds metadata / release / actions signals, rolling everything into a single **0–100 score + letter grade** per repo, and a **matrix + roll-up** across an org. Reach for it first; drop to the manual checklist below only when you need a specific row the scorecard doesn't surface.
+
+```bash
+bash scripts/repo-scorecard.sh --repo 0xDarkMatter/flarecrawl     # single repo: score + dimensions + top 3 fixes
+bash scripts/repo-scorecard.sh --org 0xDarkMatter                 # fleet matrix + roll-up (avg/median/worst, fleet open-alert total)
+bash scripts/repo-scorecard.sh --org 0xDarkMatter --min-score 75  # CI gate: exit 10 if ANY repo scores < 75
+bash scripts/repo-scorecard.sh --repo <o>/<r> --json | jq '.data[0].top_fixes'
+```
+
+Five weighted dimensions — **security (35)** highest, then **metadata (25)**, **release (15)**, **issues (15)**, **actions (10)**. Each scores its weight in full (ok) / half (warn) / zero (gap **or** unreadable n/a — an unreadable dimension never counts as healthy). Grade: A≥90 B≥75 C≥60 D≥40 F<40. The full rubric is documented in the script header (`--help`). It surfaces the **top 3 fixes per repo**, highest-severity first, each with the exact remediation pointer (e.g. `→ check-security-posture.sh --repo … --commands`, "add CHANGELOG.md", "cut a GitHub release"). Exit `0` healthy · `10` gaps / below `--min-score` · `7` unavailable (graceful) · `5` gh missing · `2` usage. **Strictly read-only** — only GET `gh api` calls + the read-only siblings; the remediation pointers are text, never executed.
+
+Below is the underlying checklist the scorecard's dimensions roll up (and what mode `new`/`update` act on). See `references/metadata-checklist.md` for the complete version; the SKILL enforces these:
 
 ```
 LOCAL FILE CHECKS
@@ -341,6 +352,7 @@ When adding any of the above, keep the boundary discipline: anything talking to 
 | `references/metadata-checklist.md` | Audit checklist source of truth |
 | `references/issue-ops.md` | Issue operation playbooks (view/triage/comment/create/close) + preview templates |
 | `references/pr-ops.md` | PR operation playbooks (create/review/merge) + pre-merge gate + merge-strategy decision tree |
+| `scripts/repo-scorecard.sh` | **Capstone audit tool.** Scored, read-only repo-health matrix — orchestrates `check-security-posture.sh` + `check-issues.sh` and adds metadata/release/actions signals into a 0–100 score + grade per repo; `--org` for a fleet matrix + roll-up; `--min-score N` to gate CI; `--json` envelope. Surfaces top-3 fixes per repo. Never mutates |
 | `scripts/check-issues.sh` | Surface open issues you may not have seen (externally-authored + stale) for a repo or remote. Read-only `gh issue list`; flags author≠owner and untouched-for-N-days |
 | `scripts/check-security-posture.sh` | Read-only repo security-posture auditor. Per-feature checklist (Dependabot alerts/updates, secret scanning + push protection, code scanning, private vuln reporting, SECURITY.md, branch protection), visibility-aware severity, open-alert exposure where a scanner is on, `--org` fleet sweep. Emits enable commands as text — never applies a change |
 | `assets/SECURITY.md.template` | Copy-ready vulnerability-disclosure policy (supported versions, private reporting via GitHub PVR, response SLAs, scope, safe harbor) — what `check-security-posture.sh` points at when SECURITY.md is absent |
