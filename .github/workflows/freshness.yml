@@ -61,6 +61,15 @@ jobs:
           if [ "$rc" -eq 7 ]; then echo "::warning::ytdlp-ops live check unavailable (network/API/yt-dlp) — skipped"; fi
           exit 0
 
+      - name: mapbox-ops facts vs live (style URLs + GL JS major)
+        run: |
+          set +e
+          python skills/mapbox-ops/scripts/check-mapbox-facts.py --live
+          rc=$?
+          if [ "$rc" -eq 10 ]; then echo "::error::mapbox-ops drift — a third-party style URL 404'd or GL JS shipped a major past v3"; exit 1; fi
+          if [ "$rc" -eq 7 ]; then echo "::warning::mapbox-ops live check unreachable — skipped"; fi
+          exit 0
+
       - name: GitHub Action refs still resolve
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,38 @@
+{
+  "_comment": "Mapbox first-party base styles, current as of GL JS v3 (2026). Copy a `url` into `new mapboxgl.Map({style})` or `map.setStyle()`. `family:standard` styles are the v3 3D composited basemap (configure via setConfigProperty, insert layers via slot — see references/v3-standard-style.md). `family:classic` styles expose named, enumerable layers (palette recolour + layer-walking work — see references/palette.md, terrain.md). Verify the latest version suffixes against https://docs.mapbox.com/api/maps/styles/#mapbox-styles before relying on them.",
+  "styles": [
+    { "id": "standard",            "url": "mapbox://styles/mapbox/standard",                "family": "standard", "labels": true,  "imagery": false, "three_d": true,  "use": ["3d-city", "modern", "default", "configurable-light"] },
+    { "id": "standard-satellite",  "url": "mapbox://styles/mapbox/standard-satellite",      "family": "standard", "labels": true,  "imagery": true,  "three_d": true,  "use": ["3d-aerial", "satellite-with-3d"] },
+    { "id": "streets-v12",         "url": "mapbox://styles/mapbox/streets-v12",             "family": "classic",  "labels": true,  "imagery": false, "three_d": false, "use": ["wayfinding", "general-reference", "busy"] },
+    { "id": "outdoors-v12",        "url": "mapbox://styles/mapbox/outdoors-v12",            "family": "classic",  "labels": true,  "imagery": false, "three_d": false, "use": ["trail", "terrain", "hillshade", "outdoor"] },
+    { "id": "light-v11",           "url": "mapbox://styles/mapbox/light-v11",               "family": "classic",  "labels": true,  "imagery": false, "three_d": false, "use": ["dataviz", "choropleth", "muted-base"] },
+    { "id": "dark-v11",            "url": "mapbox://styles/mapbox/dark-v11",                "family": "classic",  "labels": true,  "imagery": false, "three_d": false, "use": ["dataviz", "dark-mode", "glowing-data"] },
+    { "id": "satellite-v9",        "url": "mapbox://styles/mapbox/satellite-v9",            "family": "classic",  "labels": false, "imagery": true,  "three_d": false, "use": ["pure-imagery", "no-labels"] },
+    { "id": "satellite-streets-v12","url": "mapbox://styles/mapbox/satellite-streets-v12",  "family": "classic",  "labels": true,  "imagery": true,  "three_d": false, "use": ["aerial-with-context", "photoreal"] },
+    { "id": "navigation-day-v1",   "url": "mapbox://styles/mapbox/navigation-day-v1",       "family": "classic",  "labels": true,  "imagery": false, "three_d": false, "use": ["turn-by-turn", "routing-day"] },
+    { "id": "navigation-night-v1", "url": "mapbox://styles/mapbox/navigation-night-v1",     "family": "classic",  "labels": true,  "imagery": false, "three_d": false, "use": ["turn-by-turn", "routing-night"] }
+  ],
+  "standard_presets": {
+    "_comment": "v3 Standard style (and standard-satellite) — set at runtime via map.setConfigProperty('basemap', key, value) on style.load. One style, many looks; custom layers preserved (no reload).",
+    "lightPreset": ["dawn", "day", "dusk", "night"],
+    "theme": ["default", "faded", "monochrome"]
+  },
+  "effects": {
+    "_comment": "Runtime, style-independent visual effects. Weather requires GL JS >= 3.7.",
+    "rain": "map.setRain({density, intensity, color, opacity}) | map.setRain(null)",
+    "snow": "map.setSnow({density, intensity, color, flakeSize}) | map.setSnow(null)",
+    "fog":  "map.setFog({range, color, 'high-color', 'horizon-blend'}) — globe/terrain atmosphere"
+  },
+  "third_party": [
+    { "id": "stadia-stamen-watercolor", "url": "https://tiles.stadiamaps.com/styles/stamen_watercolor.json", "looks": ["watercolor", "painterly", "artistic"], "key": "stadia (free tier)", "note": "Iconic hand-painted map. Stamen styles are served by Stadia." },
+    { "id": "stadia-stamen-toner",      "url": "https://tiles.stadiamaps.com/styles/stamen_toner.json",      "looks": ["high-contrast", "black-and-white", "editorial"], "key": "stadia (free tier)" },
+    { "id": "stadia-alidade-smooth-dark","url": "https://tiles.stadiamaps.com/styles/alidade_smooth_dark.json","looks": ["dark", "muted", "dataviz"], "key": "stadia (free tier)" },
+    { "id": "carto-positron",    "url": "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",    "looks": ["light", "minimal", "dataviz"], "key": "none (attribution)" },
+    { "id": "carto-dark-matter", "url": "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json", "looks": ["dark", "glowing-data", "dashboard"], "key": "none (attribution)" },
+    { "id": "carto-voyager",     "url": "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",     "looks": ["balanced", "labelled", "dataviz"], "key": "none (attribution)" },
+    { "id": "openfreemap-liberty","url": "https://tiles.openfreemap.org/styles/liberty",                    "looks": ["streets", "osm-bright-like"], "key": "none" },
+    { "id": "thunderforest",     "looks": ["spinal-map (tron)", "atlas (vintage sepia)", "pioneer", "transport"], "key": "thunderforest (freemium)", "note": "style-JSON/raster via apikey; artistic catalog." },
+    { "id": "maptiler",          "looks": ["backdrop", "dataviz", "toner", "topo", "winter", "ocean", "bright"], "key": "maptiler (key)", "note": "https://api.maptiler.com/maps/<style>/style.json?key=…" },
+    { "id": "protomaps",         "looks": ["light", "dark", "white", "black", "grayscale", "contrast"], "key": "none (self-host PMTiles)", "note": "protomaps-themes-base; single-file basemap via pmtiles:// protocol." }
+  ]
+}

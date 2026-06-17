@@ -7,7 +7,22 @@ feature releases live in the README "Recent Updates" section.
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-06-17
+
 ### Added
+- **`mapbox-ops` skill** - advanced Mapbox GL JS toolkit for the web (v3, not the
+  native SDKs): custom markers, thematic dataviz, 3D/terrain, cinematic camera, style
+  composition, expressions, performance, and hard-won gotchas across 14 reference files.
+  Ships a headless-Playwright map verifier (`screenshot_map.py` - asserts a marker
+  projects to its lng/lat) and a stdlib-only `check-mapbox-facts.py` §7 staleness
+  verifier: offline asserts the v3 Standard config enums, terrain tileset IDs, and
+  weather/camera version gates stay internally consistent; live resolves the third-party
+  style URLs and flags a GL JS major bump past v3. 37-assertion offline self-test.
+- **`pypi-ops` skill** - publish Python packages to PyPI via OIDC Trusted Publishing
+  with PEP 740 attestations (`gh-action-pypi-publish`), not stored API tokens. Covers
+  first-publish pending-publisher setup, the invalid-publisher / already-exists failure
+  ladder, TestPyPI dry runs, release-environment approval gates, local `uv publish` /
+  `twine`, and a stale-OIDC-federation audit (the Mini Shai-Hulud publish-token vector).
 - **`docs/SKILL-CREATION-PROTOCOL.md`** - the canonical "how to build a claude-mods
   skill" sequencing doc (warranted? → frontmatter → body → resources → tests → repo
   wiring → ship). Cites rather than restates the layer-owning docs (skill-creator,
