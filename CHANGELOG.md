@@ -14,6 +14,21 @@ feature releases live in the README "Recent Updates" section.
   SKILL-SUBAGENT-REFERENCE, naming-conventions, SKILL-RESOURCE-PROTOCOL) and carries a
   precedence table for when they disagree. `skill-agent-updates.md` now routes here first.
 
+### Changed (terminal output)
+- **Terminal design system promoted from experimental to the standard** for claude-mods
+  shell scripts (`docs/TERMINAL-DESIGN.md`). The `github-ops` audit family
+  (`repo-scorecard.sh`, `check-security-posture.sh`, `check-issues.sh`) now sources
+  `skills/_lib/term.sh` for all human-facing framing — cyan section headers, colored
+  status marks, a score pip-bar — while the `--json`/data product on stdout stays plain
+  (stream separation preserved; verified zero ANSI on stdout). Every glyph falls back to
+  ASCII under `TERM_ASCII=1` (a full scorecard renders pure-ASCII), and color follows the
+  stderr TTY so piping `--json | jq` keeps the framing colored.
+- **`term.sh` additions**: `term_init` takes an optional fd (`term_init 2`) so
+  stream-separated tools detect color on the stream the human actually sees; new
+  `term_mark <ok|bad|warn|skip|na|unknown>` checklist primitive (with registered ASCII
+  proxies) and a `TERM_ARROW` (-> ) pointer glyph. github-ops test suite gained 6
+  assertions (source-check + ASCII-fallback purity); 40/40 offline.
+
 ### Fixed (docs)
 - **`SKILL-SUBAGENT-REFERENCE.md` was self-contradictory and misleading** (surfaced by
   external PR #12): it declared "no other top-level keys are permitted" and its

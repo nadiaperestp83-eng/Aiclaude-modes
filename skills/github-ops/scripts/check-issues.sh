@@ -28,6 +28,17 @@ set -uo pipefail
 EX_OK=0; EX_USAGE=2; EX_MISSING_DEP=5; EX_UNAVAILABLE=7; EX_FINDINGS=10
 GH_TIMEOUT="${GH_TIMEOUT:-15}"   # seconds; bounds the network call
 
+# Terminal design system (skills/_lib/term.sh). Framing prints to stderr, so detect
+# color on fd 2. Degrade to plain output if the shared lib isn't reachable.
+__lib="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../_lib" 2>/dev/null && pwd || true)"
+if [ -n "${__lib:-}" ] && [ -f "$__lib/term.sh" ]; then . "$__lib/term.sh"; term_init 2
+else
+  term_header() { printf '%s\n' "${1:-}"; }
+  term_color()  { shift; printf '%s' "$*"; }
+  term_mark()   { case "${1:-}" in ok) printf '+';; bad|gap) printf 'x';; warn) printf '!';; skip|na) printf '-';; unknown) printf '?';; *) printf '.';; esac; }
+  TERM_ARROW="->"
+fi
+
 REPO=""; REMOTE="origin"; STALE_DAYS=30; LIMIT=50; ADVISORY=0; JSON=0
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -100,10 +111,10 @@ if [ "$flagged_n" -eq 0 ]; then
 fi
 
 {
-  echo "OPEN ISSUES worth a look — $REPO ($flagged_n of $total open flagged):"
-  printf '%s' "$analysis" | jq -r '.flagged[]
-    | "  #\(.number)  [\(if .external then "external" else "yours" end)\(if .stale then ",stale" else "" end)]  by \(.author.login)  \(.title)"'
-  echo "  → gh issue view <n> --repo $REPO    (read-only; this never blocks a push)"
+  term_header "OPEN ISSUES: $REPO" "$flagged_n of $total open flagged"
+  printf '%s' "$analysis" | jq -r --arg m "$(term_mark warn)" '.flagged[]
+    | "  \($m) #\(.number)  [\(if .external then "external" else "yours" end)\(if .stale then ",stale" else "" end)]  by \(.author.login)  \(.title)"'
+  echo "$(term_color dim "  ${TERM_ARROW} gh issue view <n> --repo $REPO    (read-only; this never blocks a push)")"
 } >&2
 
 exit "$EX_FINDINGS"

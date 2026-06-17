@@ -4,10 +4,12 @@
 # Source from any skill script:
 #   LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../_lib" && pwd)"
 #   . "$LIB/term.sh"
-#   term_init
+#   term_init          # detect on stdout (panels printed to stdout)
+#   term_init 2        # detect on stderr (stream-separated tools: data→stdout,
+#                      #                    framing→stderr — color follows fd 2)
 #
 # Honors: NO_COLOR, FORCE_COLOR, TERM_ASCII=1, FLEET_ASCII=1 (legacy).
-# Status: experimental — see docs/TERMINAL-DESIGN.md.
+# See docs/TERMINAL-DESIGN.md for the design system this implements.
 
 # Guard against double-sourcing.
 [[ -n "${__TERM_SH_LOADED:-}" ]] && return 0
@@ -61,14 +63,20 @@ TERM_GLYPH_ALERT=""
 # Empty-state tip glyph (💡)
 TERM_GLYPH_TIP=""
 
+# Pointer/arrow glyph (→ / ->) — for "problem → remedy" leads.
+TERM_ARROW=""
+
 # Spinner frame banks (set by term_init; arrays keep order).
 TERM_SPIN_WORKING=()
 TERM_SPIN_HEARTBEAT=()
 
 # ─── term_init ────────────────────────────────────────────────────────────
 term_init() {
-  # TTY detection — stdout only.
-  if [[ -t 1 ]]; then TERM_TTY=1; else TERM_TTY=0; fi
+  # TTY/color detection follows the chosen fd (default 1 = stdout). Stream-separated
+  # tools that print framing to stderr should call `term_init 2` so color tracks the
+  # stream the human actually sees, even when stdout is piped to jq.
+  local fd=${1:-1}
+  if [[ -t "$fd" ]]; then TERM_TTY=1; else TERM_TTY=0; fi
 
   # ASCII fallback: explicit env, or non-UTF locale.
   if [[ "${TERM_ASCII:-}" == "1" ]] || [[ "${FLEET_ASCII:-}" == "1" ]]; then
@@ -111,6 +119,7 @@ term_init() {
     TERM_GLYPH_BRANCH="(b)"
     TERM_GLYPH_ALERT="!"
     TERM_GLYPH_TIP="(i)"
+    TERM_ARROW="->"
     TERM_SPIN_WORKING=('|' '/' '-' '\')
     TERM_SPIN_HEARTBEAT=('.' ':' '*' ':')
   else
@@ -130,6 +139,7 @@ term_init() {
     TERM_GLYPH_BRANCH="⎇"
     TERM_GLYPH_ALERT="▲"
     TERM_GLYPH_TIP="💡"
+    TERM_ARROW="→"
     TERM_SPIN_WORKING=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
     TERM_SPIN_HEARTBEAT=('·' '∙' '•' '●' '•' '∙')
   fi
@@ -226,6 +236,29 @@ term_state_icon() {
     HINT|INFO)         printf '%s' "$TERM_ICON_HINT" ;;
     *)                 printf '%s' "?" ;;
   esac
+}
+
+# ─── Checklist mark ───────────────────────────────────────────────────────
+# term_mark <state>  — compact single-glyph status mark, colored + ASCII-aware.
+# The lightweight checklist counterpart to the emoji-heavy term_state_icon: use
+# it for ✓/✗ audit rows. Every glyph has a registered ASCII fallback (TERM_ASCII=1).
+#   ok ✓/+ green · bad|gap ✗/x red · warn ▲/! orange · skip|na —/- dim · unknown ?/? yellow
+term_mark() {
+  local g c
+  case "$1" in
+    ok)        g="✓"; c="green" ;;
+    bad|gap)   g="✗"; c="red" ;;
+    warn)      g="▲"; c="orange" ;;
+    skip|na)   g="—"; c="dim" ;;
+    unknown)   g="?"; c="yellow" ;;
+    *)         g="·"; c="" ;;
+  esac
+  if [[ "$TERM_ASCII_MODE" -eq 1 ]]; then
+    case "$1" in
+      ok) g="+" ;; bad|gap) g="x" ;; warn) g="!" ;; skip|na) g="-" ;; unknown) g="?" ;; *) g="." ;;
+    esac
+  fi
+  if [[ -n "$c" ]]; then term_color "$c" "$g"; else printf '%s' "$g"; fi
 }
 
 # ─── Primitives ───────────────────────────────────────────────────────────

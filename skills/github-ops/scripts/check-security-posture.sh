@@ -48,6 +48,16 @@ set -uo pipefail
 EX_OK=0; EX_USAGE=2; EX_MISSING_DEP=5; EX_UNAVAILABLE=7; EX_FINDINGS=10
 GH_TIMEOUT="${GH_TIMEOUT:-20}"   # seconds; bounds every network call
 
+# Terminal design system (skills/_lib/term.sh). Framing prints to stderr, so detect
+# color on fd 2. Degrade to plain output if the shared lib isn't reachable.
+__lib="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../_lib" 2>/dev/null && pwd || true)"
+if [ -n "${__lib:-}" ] && [ -f "$__lib/term.sh" ]; then . "$__lib/term.sh"; term_init 2
+else
+  term_header() { printf '%s\n' "${1:-}"; }
+  term_color()  { shift; printf '%s' "$*"; }
+  term_mark()   { case "${1:-}" in ok) printf '+';; bad|gap) printf 'x';; warn) printf '!';; skip|na) printf '-';; unknown) printf '?';; *) printf '.';; esac; }
+fi
+
 REPO=""; REMOTE="origin"; ORG=""; COMMANDS=0; JSON=0; STRICT=0; ADVISORY=0
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -276,25 +286,27 @@ print_human() { # repo_json
   repo="$(printf '%s' "$o" | jq -r '.repo')"
   vis="$(printf '%s' "$o" | jq -r '.visibility')"
   {
-    echo "SECURITY POSTURE — $repo ($vis)"
-    printf '%s' "$o" | jq -r '
+    term_header "SECURITY POSTURE: $repo" "$vis"
+    printf '%s' "$o" | jq -r \
+      --arg ok "$(term_mark ok)" --arg bad "$(term_mark bad)" \
+      --arg na "$(term_mark na)" --arg unk "$(term_mark unknown)" '
       .features[] |
       if .state=="on" then
-        "  ✓ \(.feature)" +
+        "  \($ok) \(.feature)" +
           (if (.open_alerts // 0) > 0 then "  — \(.open_alerts) OPEN alert(s)" + (if .max_severity then ", max \(.max_severity)" else "" end) else "" end) +
           (if .max_severity=="unknown" then "  (alerts: couldn’t read — needs security_events scope)" else "" end)
       elif .state=="n/a" then
-        "  — \(.feature)  n/a (needs GitHub Advanced Security on a private repo)"
+        "  \($na) \(.feature)  n/a (needs GitHub Advanced Security on a private repo)"
       elif .state=="unknown" then
-        "  ? \(.feature)  n/a (couldn’t read)"
+        "  \($unk) \(.feature)  n/a (couldn’t read)"
       else
-        "  ✗ \(.feature)  [\(.severity)]"
+        "  \($bad) \(.feature)  [\(.severity)]"
       end'
     # Enable commands for gaps.
     local has_gap
     has_gap="$(printf '%s' "$o" | jq '[.features[]|select(.applicable==true and (.state=="off"))]|length')"
     if [ "$has_gap" -gt 0 ]; then
-      echo "  ── enable commands (review before running; this script never runs them):"
+      term_header "enable commands" "review before running; this script never runs them"
       printf '%s' "$o" | jq -r '.features[]|select(.applicable==true and .state=="off")|"     \(.enable_command)"'
     fi
   } >&2
@@ -334,7 +346,7 @@ if [ -n "$ORG" ]; then
     obj="$(audit_repo "$r")"; rc=$?
     if [ "$rc" -eq 7 ] || [ -z "$obj" ]; then
       unread=$((unread+1))
-      [ "$JSON" -eq 1 ] || echo "  ? $r — couldn't read (skipped)" >&2
+      [ "$JSON" -eq 1 ] || echo "  $(term_mark unknown) $r — couldn't read (skipped)" >&2
       continue
     fi
     swept=$((swept+1))
@@ -343,8 +355,8 @@ if [ -n "$ORG" ]; then
     if [ "$JSON" -eq 0 ] && [ "$COMMANDS" -eq 0 ]; then
       gaps="$(printf '%s' "$obj" | jq '[.features[]|select(.applicable==true and ((.state=="off") or (.state=="unknown") or ((.open_alerts//0)>0)))]|length')"
       vis="$(printf '%s' "$obj" | jq -r '.visibility')"
-      if [ "$gaps" -eq 0 ]; then echo "  ✓ $r ($vis) — clean" >&2
-      else echo "  ✗ $r ($vis) — $gaps gap(s)/alert(s)" >&2; fi
+      if [ "$gaps" -eq 0 ]; then echo "  $(term_mark ok) $r ($vis) — clean" >&2
+      else echo "  $(term_mark bad) $r ($vis) — $gaps gap(s)/alert(s)" >&2; fi
     fi
   done
 
@@ -356,7 +368,7 @@ if [ -n "$ORG" ]; then
     echo "# review before running — these change repo settings" >&2
     printf '%s' "$all" | jq -r '.[] | "# \(.repo)", (.features[]|select(.applicable==true and .state=="off")|"  \(.enable_command)")'
   else
-    echo "── swept $swept repo(s) in $ORG; $unread unreadable. ✗ = action available." >&2
+    term_header "swept $swept repo(s) in $ORG" "$unread unreadable" >&2
   fi
   [ "$any_findings" -eq 1 ] && exit "$EX_FINDINGS"
   exit "$EX_OK"

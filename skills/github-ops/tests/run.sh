@@ -137,5 +137,33 @@ if grep -nE 'gh (release create|repo edit|release delete|secret set|pr merge)' "
 else ok "rs: mutating gh subcommands only appear as printed remediation text"; fi
 
 echo
+echo "-- terminal design system (term.sh adoption + ASCII fallback) --"
+
+# All three auditors must source the shared toolkit, not hand-roll ANSI.
+for s in "$CI" "$SP" "$RS"; do
+  b="$(basename "$s")"
+  if grep -q '_lib/term.sh' "$s"; then ok "$b sources _lib/term.sh"
+  else no "$b does not source _lib/term.sh"; fi
+done
+
+LIBTERM="$ROOT/../_lib/term.sh"
+if [ -f "$LIBTERM" ]; then
+  ok "term.sh present"
+  # Under TERM_ASCII=1 every framing primitive must fall back to pure ASCII
+  # (design principle #3: every glyph has a registered ASCII proxy).
+  marks="$(TERM_ASCII=1 LT="$LIBTERM" bash -c '. "$LT"; term_init; printf "%s%s%s%s%s%s%s" \
+    "$(term_mark ok)" "$(term_mark bad)" "$(term_mark warn)" "$(term_mark na)" \
+    "$(term_mark unknown)" "$(term_header hdr)" "$TERM_ARROW"')"
+  if printf '%s' "$marks" | LC_ALL=C grep -q '[^[:print:][:cntrl:]]'; then
+    no "term.sh TERM_ASCII=1 still emits non-ASCII bytes"
+  else ok "term.sh TERM_ASCII=1 primitives are pure ASCII"; fi
+  # A fallback that silently drops the glyph (empty) is a bug, not a fallback.
+  m="$(TERM_ASCII=1 LT="$LIBTERM" bash -c '. "$LT"; term_init; term_mark ok')"
+  [ -n "$m" ] && ok "term_mark renders non-empty in ASCII mode" || no "term_mark ok is empty"
+else
+  no "term.sh missing at $LIBTERM"
+fi
+
+echo
 echo "=== $pass passed, $fail failed ==="
 [ "$fail" -eq 0 ]

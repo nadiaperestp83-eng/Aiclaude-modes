@@ -1,6 +1,6 @@
 # Terminal Panel Design System
 
-> **Status:** Experimental. First consumer: `fleet-ops`.
+> **Status:** Active — the standard for terminal output across claude-mods shell scripts. Toolkit: [`skills/_lib/term.sh`](../skills/_lib/term.sh). Consumers: `fleet-ops` (panels), `github-ops` audit family (stream-separated `term_init 2` + `term_mark` checklists). New TTY-facing scripts should source `term.sh` rather than hand-roll ANSI.
 >
 > **Format:** Adapted from [google-labs-code/design.md](https://github.com/google-labs-code/design.md) — a structured design-spec template — and remapped to bash CLIs. Where that spec talks about screens, components, and tokens, this one talks about panels, sections, and glyphs.
 
