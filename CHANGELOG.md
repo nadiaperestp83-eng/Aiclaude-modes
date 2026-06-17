@@ -35,6 +35,18 @@ feature releases live in the README "Recent Updates" section.
   conversion done). docs/ top level is now 8 load-bearing docs + `archive/` + `references/`.
 
 ### Added
+- **github-ops security-posture auditor** - `scripts/check-security-posture.sh`:
+  read-only audit of a repo's GitHub security settings (Dependabot alerts +
+  security updates, secret scanning + push protection, code scanning, private
+  vulnerability reporting, SECURITY.md, default-branch protection). Three things
+  make it more than a toggle-checker: **visibility-aware severity** (public-repo
+  scanning gaps are findings; private-without-GHAS is a note, not a nag), **the
+  exposure layer** (where a scanner is enabled it fetches open-alert counts + max
+  severity — the real signal), and an **`--org` fleet sweep** that audits every
+  non-archived repo you own in one pass. Emits the exact enable commands but never
+  applies them (a CI-asserted read-only guarantee). Ships `assets/SECURITY.md.template`;
+  wired into `audit` mode; +13 offline test assertions (19 total). Exit 10 on
+  gaps/open-alerts, 7 when unavailable.
 - **github-ops open-issue awareness** - `scripts/check-issues.sh` surfaces open
   issues you may not have seen (externally-authored + stale), read-only via
   `gh issue list`. Wired into the pre-push gate (`push-gate/preflight.sh`) as a

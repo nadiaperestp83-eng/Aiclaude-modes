@@ -1,6 +1,6 @@
 ---
 name: github-ops
-description: "GitHub remote operations — repo creation, metadata (description/homepage/topics), releases, README 'Recent Updates' enforcement, and issue / PR management with preview-before-send discipline. Companion to git-ops (local) and push-gate (pre-push safety). Three modes: new (first publish), update (subsequent release), audit (read-only checklist), plus atomic operations for issues and PRs. Triggers on: push to github, publish repo, ship release, cut release, gh release, set topics, repo description, github metadata, recent updates section, audit github repo, repo visibility, make repo public, gh repo create, gh issue, gh pr, create issue, comment on issue, close issue, triage issue, create PR, review PR, merge PR, pre-merge check, pr checks."
+description: "GitHub remote operations — repo creation, metadata (description/homepage/topics), releases, README 'Recent Updates' enforcement, issue / PR management with preview-before-send discipline, and read-only repo security-posture auditing. Companion to git-ops (local) and push-gate (pre-push safety). Three modes: new (first publish), update (subsequent release), audit (read-only checklist), plus atomic operations for issues and PRs. Triggers on: push to github, publish repo, ship release, cut release, gh release, set topics, repo description, github metadata, recent updates section, audit github repo, repo visibility, make repo public, gh repo create, gh issue, gh pr, create issue, comment on issue, close issue, triage issue, create PR, review PR, merge PR, pre-merge check, pr checks, security posture, dependabot, secret scanning, code scanning, branch protection, SECURITY.md, is this repo secure, audit repo security."
 when_to_use: "Use when the user asks to publish a repo, cut a GitHub release, set repo description/topics, audit a repo, or manage issues and PRs with gh — e.g. 'comment on issue #4', 'merge the PR', 'make the repo public'."
 license: MIT
 allowed-tools: "Read Write Edit Bash Glob Grep"
@@ -32,7 +32,8 @@ git-ops                        push-gate           github-ops  (this skill)
 | Package metadata audit (pyproject/package.json ↔ GH topics ↔ tag ↔ version) | **`github-ops`** |
 | `gh issue` operations (view/list/create/comment/edit/triage/close) | **`github-ops`** |
 | `gh pr` operations (view/list/diff/checks/create/comment/review/edit/merge/close) | **`github-ops`** |
-| Actions / secrets / branch protection / social preview | **`github-ops`** (future) |
+| Security posture audit (Dependabot / secret+code scanning / PVR / SECURITY.md / branch protection) — read-only | **`github-ops`** (`scripts/check-security-posture.sh`) |
+| Actions / secrets / social preview / branch-protection *writes* | **`github-ops`** (future) |
 
 ## Hard rules
 
@@ -188,9 +189,19 @@ GITHUB STATE CHECKS (skip if no remote)
   [ ] Default branch is main (not master)
   [ ] Latest tag has a corresponding release
   [ ] Release notes match CHANGELOG entry
+
+SECURITY POSTURE CHECKS (run scripts/check-security-posture.sh — read-only)
+  [ ] Dependabot alerts enabled
+  [ ] Dependabot security updates enabled
+  [ ] Secret scanning + push protection on   (free on public; needs GHAS on private)
+  [ ] Code scanning default setup configured  (free on public; needs GHAS on private)
+  [ ] Private vulnerability reporting enabled
+  [ ] SECURITY.md present (root / .github/ / docs/)
+  [ ] Branch protection on the default branch
+  [ ] No OPEN dependabot / secret / code-scanning alerts on enabled scanners
 ```
 
-Output: per-row pass/fail/warn, then a summary score and list of fixes. Fixes are suggested but not applied — the user decides whether to run mode `new` or mode `update` to act on them.
+Output: per-row pass/fail/warn, then a summary score and list of fixes. Fixes are suggested but not applied — the user decides whether to run mode `new` or mode `update` to act on them. For the security-posture rows, run `scripts/check-security-posture.sh --repo <o>/<r>` and fold its checklist in; the enable commands it emits are surfaced for the user to approve, never auto-run.
 
 ## Operations
 
@@ -331,7 +342,8 @@ When adding any of the above, keep the boundary discipline: anything talking to 
 | `references/issue-ops.md` | Issue operation playbooks (view/triage/comment/create/close) + preview templates |
 | `references/pr-ops.md` | PR operation playbooks (create/review/merge) + pre-merge gate + merge-strategy decision tree |
 | `scripts/check-issues.sh` | Surface open issues you may not have seen (externally-authored + stale) for a repo or remote. Read-only `gh issue list`; flags author≠owner and untouched-for-N-days |
-| `assets/` | (empty; reserved for README templates / snippets) |
+| `scripts/check-security-posture.sh` | Read-only repo security-posture auditor. Per-feature checklist (Dependabot alerts/updates, secret scanning + push protection, code scanning, private vuln reporting, SECURITY.md, branch protection), visibility-aware severity, open-alert exposure where a scanner is on, `--org` fleet sweep. Emits enable commands as text — never applies a change |
+| `assets/SECURITY.md.template` | Copy-ready vulnerability-disclosure policy (supported versions, private reporting via GitHub PVR, response SLAs, scope, safe harbor) — what `check-security-posture.sh` points at when SECURITY.md is absent |
 
 ## Open-issue awareness (the blind spot)
 
@@ -346,3 +358,28 @@ bash scripts/check-issues.sh --json | jq '.data[] | select(.external)'
 Exit `0` = nothing you're missing (no open issues, or all are yours and fresh); `10` = external/stale issues present (the things to look at); `7` = unavailable (not a GitHub remote, gh unauthed/offline) — advisory, never a hard failure; `2` usage; `5` gh not installed.
 
 **Wired into the pre-push gate** ([push-gate](../push-gate/)): `preflight.sh` calls this in `--advisory` mode as a post-gate step, so every push surfaces unseen external/stale issues for the target remote. It is **read-only, timeout-bounded, and never affects the gate verdict** — silent when gh is absent/unauthed or the remote isn't GitHub. Run it standalone any time, or across repos, to find what you've missed. For acting on what it surfaces (view/triage/comment/close), see `references/issue-ops.md`.
+
+## Security posture (the other blind spot)
+
+GitHub ships a stack of free security features — Dependabot alerts, security updates, secret scanning + push protection (free on **public** repos), code scanning default setup, private vulnerability reporting, branch protection — and most are **off by default**. You don't see the gap until something leaks. `scripts/check-security-posture.sh` audits it, read-only:
+
+```bash
+bash scripts/check-security-posture.sh --repo 0xDarkMatter/flarecrawl   # one repo
+bash scripts/check-security-posture.sh --remote origin                  # derive from a remote
+bash scripts/check-security-posture.sh --org 0xDarkMatter               # fleet sweep + roll-up
+bash scripts/check-security-posture.sh --repo <o>/<r> --commands        # copy-paste enable cmds
+bash scripts/check-security-posture.sh --repo <o>/<r> --json | jq '.data[]|select(.state=="off")'
+```
+
+It prints a per-feature checklist — `✓ on` / `✗ off [severity]` / `— n/a (needs GHAS)` — and, **where a scanner is enabled**, the count + max severity of OPEN alerts (the real exposure, not just the toggle). The alert endpoints degrade gracefully: a `403` (token lacks `security_events`) or `404` (feature off) becomes "n/a — couldn't read", **never a false "0 / secure"**.
+
+**Visibility-aware severity** is the judgment that makes it usable:
+
+- **public** repo → secret scanning, push protection, code scanning are **free** → a gap is a real finding.
+- **private** repo *without* Advanced Security → those three need paid GHAS → reported as a **note (n/a)**, not a nag.
+- Free-on-any-repo (Dependabot alerts/updates, private vuln reporting, SECURITY.md, branch protection) → always a finding when off.
+- Tiers: `critical` (open critical alerts) · `high` (open high alerts; push-protection or Dependabot-alerts off on public/active) · `medium` (secret/code scanning off on public; security-updates off; no branch protection) · `low` (SECURITY.md absent; private vuln reporting off). Full mapping in the script header.
+
+**It never applies a change.** It is strictly read-only (only GET `gh api` calls); the enable commands are **emitted as text** — `gh api -X PUT …` for Dependabot alerts/security-updates/private-vuln-reporting/code-scanning, a `PATCH` body for secret scanning + push protection (push protection requires secret scanning on first), and a pointer to `assets/SECURITY.md.template` for the policy file. **You review and run them yourself**, governed by the same preview discipline as any other repo mutation (hard rule 8 — these change repo settings). `--commands` prints just the enable commands with a `# review before running` banner on stderr.
+
+Exit `0` = posture clean (all applicable features on, no open alerts); `10` = gaps and/or open alerts (a CI/audit step can branch on it); `7` = unavailable (non-github remote, gh unauthed/offline/timeout) — advisory, never a hard failure; `2` usage; `5` gh not installed. Folds into mode `audit` (see the Security Posture checklist there).
