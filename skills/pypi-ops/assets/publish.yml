@@ -1,0 +1,114 @@
+# PyPI publish — OIDC Trusted Publishing, hardened (claude-mods/pypi-ops template).
+#
+# ADAPT POINTS (search "ADAPT"):
+#   1. <DIST-NAME>  — your distribution name (pyproject [project].name), used by
+#                     the verify job. Must match the project on PyPI.
+#   2. environment  — keep `pypi`; if you change it, change the PyPI publisher's
+#                     "Environment name" claim to match (they must be equal).
+#   3. Build steps  — the template assumes uv + a committed uv.lock. If you don't
+#                     use uv, replace the "Sync locked environment" + "Build"
+#                     steps with `python -m build` and drop `uv sync --locked`.
+#
+# PREREQUISITE (the #1 first-publish failure): register a Trusted Publisher on
+# PyPI. First publish → a *pending publisher* at
+# https://pypi.org/manage/account/publishing/ with claims matching THIS file:
+#   Owner=<org/user>  Repository=<repo>  Workflow=publish.yml  Environment=pypi
+# Without it the publish step fails `invalid-publisher`. See pypi-ops SKILL.md.
+#
+# SHA PINS: every `uses:` is pinned to a full commit SHA with a trailing `# vX`
+# comment (mutable @vN tags have been hijacked in the wild — tj-actions, 2025).
+# Refresh with: scripts/check-action-pins.py --live .github/workflows/publish.yml
+
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - "v*"            # release on a version tag only — never on ordinary pushes
+
+permissions: {}        # least privilege: grant per-job below
+
+concurrency:           # never let two tag pushes publish the same project at once
+  group: pypi-publish-${{ github.repository }}
+  cancel-in-progress: false   # let an in-flight publish finish; queue the next
+
+jobs:
+  build:
+    name: Build + audit (locked)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          enable-cache: false
+
+      # ADAPT (3): reproducible, hash-verified build env from the committed lock.
+      - name: Sync locked environment
+        run: uv sync --locked --no-dev
+
+      # A freshly-disclosed CVE in the dep set blocks the release.
+      - name: Audit dependencies
+        run: uvx pip-audit --progress-spinner off
+
+      - name: Build sdist + wheel
+        run: uv build
+
+      - name: Validate artifacts (PyPI ingestion check)
+        run: uvx twine check dist/*
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    name: Publish to PyPI (trusted publishing)
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi       # ADAPT (2): human-approval gate; matches publisher claim
+    permissions:
+      id-token: write       # OIDC for trusted publishing — the only elevated grant
+      contents: read
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
+        with:
+          attestations: true   # PEP 740 signed provenance
+          # NO password: — OIDC trusted publishing supplies the credential.
+          # TestPyPI: add  repository-url: https://test.pypi.org/legacy/
+
+  verify:
+    name: Verify on PyPI
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      # Catches "PyPI accepted the upload but the version isn't live" — silent
+      # rejection / CDN propagation lag that makes a failed release look fine.
+      - name: Confirm version is queryable on PyPI
+        env:
+          DIST_NAME: "<DIST-NAME>"   # ADAPT (1)
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          echo "Verifying ${DIST_NAME}==${version} is live on PyPI..."
+          for attempt in 1 2 3 4 5; do
+            if curl -fsS "https://pypi.org/pypi/${DIST_NAME}/${version}/json" >/dev/null; then
+              echo "OK ${DIST_NAME}==${version} is live"
+              exit 0
+            fi
+            echo "  attempt ${attempt}: not visible yet, waiting 15s..."
+            sleep 15
+          done
+          echo "FAIL ${DIST_NAME}==${version} not visible after 75s"
+          exit 1

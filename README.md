@@ -18,7 +18,7 @@ Built on the [Agent Skills specification](https://agentskills.io/specification) 
 
 From Python async patterns to Rust ownership models, from AWS Fargate deployments to Craft CMS development - claude-mods provides the specialized knowledge and tools that transform Claude from a general-purpose assistant into a domain expert who understands your stack, remembers your workflow, and ships production code.
 
-**3 agents. 91 skills. 13 styles. 11 hooks. 7 rules. One install.**
+**3 agents. 93 skills. 13 styles. 11 hooks. 7 rules. One install.**
 
 ## Recent Updates
 
@@ -195,6 +195,7 @@ See [skill-creator](skills/skill-creator/) for the complete guide.
 | [tailwind-ops](skills/tailwind-ops/) | Tailwind CSS patterns, v4 migration, components, configuration |
 | [color-ops](skills/color-ops/) | Color spaces, WCAG/APCA contrast checker, palette + harmony generators, CSS color functions, design tokens, color converter |
 | [genart-ops](skills/genart-ops/) | Generative art - three.js scenes, p5.js sketches, SVG generation, GLSL shaders, procedural algorithms, colour theory |
+| [mapbox-ops](skills/mapbox-ops/) | Advanced Mapbox GL JS (web v3) - custom markers, thematic dataviz, 3D/terrain, cinematic camera, style composition, expressions, performance, gotchas; headless Playwright map verifier |
 | [unfold-admin](skills/unfold-admin/) | Django Unfold admin theme - ModelAdmin, dashboards, filters, widgets, theming |
 
 #### Python Skills
@@ -237,6 +238,7 @@ See [skill-creator](skills/skill-creator/) for the complete guide.
 | [security-ops](skills/security-ops/) | Reactive security auditing - 3 parallel agents (dependency CVEs, SAST patterns, auth/config review) consolidated into OWASP-mapped report |
 | [portless-ops](skills/portless-ops/) | Local-dev HTTPS proxy operations for Vercel Labs' portless - TLD selection, supervisor pairing, Windows gotchas |
 | [process-compose-ops](skills/process-compose-ops/) | Process Compose supervisor operations - YAML schema, readiness probes, dependency patterns, boot persistence |
+| [pypi-ops](skills/pypi-ops/) | PyPI publishing - OIDC Trusted Publishing + PEP 740 attestations, the pending-publisher first-publish fix (`invalid-publisher`), preflight/diagnose/pin-verifier scripts, hardened `publish.yml`, uv & twine local paths |
 
 #### Workstation & Network Diagnostics
 | Skill | Description |
