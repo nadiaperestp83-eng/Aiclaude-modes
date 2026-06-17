@@ -408,6 +408,33 @@ expect_has  "flags tasks autorun shell" "tasks-autorun-shell" "$out"
 out="$("$PYTHON" "$CD" --root "$SB/cd-evil" --json --findings-only 2>/dev/null)"
 expect_has  "json envelope schema" "config-drift-check/v1" "$out"
 
+# ── terminal design system (term.sh adoption + ASCII purity) ───────────────
+echo "-- terminal design system --"
+for s in integrity-audit preinstall-check scan-extensions; do
+  grep -q '_lib/term.sh' "$SCRIPTS/$s.sh" && ok "$s.sh sources _lib/term.sh" || no "$s.sh does not source _lib/term.sh"
+done
+for s in exposure-check config-drift-check postinstall-audit; do
+  grep -q 'class Term' "$SCRIPTS/$s.py" && ok "$s.py carries inline Term" || no "$s.py missing inline Term"
+done
+# Framing must be pure ASCII under TERM_ASCII=1 (design principle #3). Captures
+# stderr only; all of these run fully offline against an empty fixture tree.
+ascii_pure() { # desc run...
+  local d="$1"; shift
+  local e; e="$(TERM_ASCII=1 FORCE_COLOR=1 "$@" 2>&1 1>/dev/null)"
+  if printf '%s' "$e" | LC_ALL=C grep -q '[^[:print:][:cntrl:]]'; then
+    no "$d framing emits non-ASCII under TERM_ASCII=1"
+  else ok "$d framing pure ASCII under TERM_ASCII=1"; fi
+}
+TDE="$SB/td-empty"; mkdir -p "$TDE"
+ascii_pure "integrity-audit" env HOME="$TDE" APPDATA="$TDE" bash "$SCRIPTS/integrity-audit.sh" "$TDE"
+ascii_pure "scan-extensions" env HOME="$TDE" SC_EXT_DIRS="$TDE/none" bash "$SCAN"
+ascii_pure "exposure-check"  env HOME="$TDE" "$PYTHON" "$SCRIPTS/exposure-check.py" --root "$TDE" --no-extensions
+ascii_pure "config-drift"    "$PYTHON" "$SCRIPTS/config-drift-check.py" --root "$TDE"
+ascii_pure "postinstall"     "$PYTHON" "$SCRIPTS/postinstall-audit.py" --root "$TDE"
+# stdout data stays plain even under FORCE_COLOR (the pipeable contract).
+tdo="$(FORCE_COLOR=1 env HOME="$TDE" "$PYTHON" "$SCRIPTS/exposure-check.py" --root "$TDE" --no-extensions 2>/dev/null)"
+case "$tdo" in *$'\033'*) no "exposure-check stdout leaked ANSI";; *) ok "exposure-check stdout stays plain data";; esac
+
 # ── summary ────────────────────────────────────────────────────────────────
 echo "=== $PASS passed, $FAIL failed ==="
 [[ "$FAIL" -eq 0 ]] || exit 1

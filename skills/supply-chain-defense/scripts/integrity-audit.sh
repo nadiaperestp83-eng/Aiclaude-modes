@@ -38,13 +38,48 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-# stderr framing — colored only when stderr is a TTY and NO_COLOR unset.
-if [[ -t 2 && -z "${NO_COLOR:-}" ]]; then
+# Terminal design system (skills/_lib/term.sh): framing on stderr (term_init 2),
+# the TSV/--json data product stays plain on stdout. The full enclosing panel
+# renders for a human at a TTY (or FORCE_COLOR); piped/quiet keeps the legacy
+# "== section ==" framing so any stderr consumer is unaffected.
+__lib="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../_lib" 2>/dev/null && pwd || true)"
+if [ -n "${__lib:-}" ] && [ -f "$__lib/term.sh" ]; then . "$__lib/term.sh"; term_init 2; __HAVE_TERM=1
+else __HAVE_TERM=0; fi
+# Color vars for the legacy (non-panel) path; sourced from term.sh when present so
+# they honor NO_COLOR / TERM_ASCII, else hand-rolled with the original TTY gate.
+if [[ "$__HAVE_TERM" -eq 1 ]]; then
+  C_Y="$TERM_C_YELLOW"; C_G="$TERM_C_GREEN"; C_D="$TERM_C_DIM"; C_O="$TERM_C_OFF"
+elif [[ -t 2 && -z "${NO_COLOR:-}" ]]; then
   C_Y=$'\033[33m'; C_G=$'\033[32m'; C_D=$'\033[2m'; C_O=$'\033[0m'
 else C_Y=""; C_G=""; C_D=""; C_O=""; fi
-section() { [[ "$QUIET" -eq 1 ]] && return; printf '%s== %s ==%s %s\n' "$C_D" "$1" "$C_O" "${2:-}" >&2; }
-info()    { [[ "$QUIET" -eq 1 ]] && return; printf '   %s\n' "$1" >&2; }
-vinfo()   { [[ "$VERBOSE" -eq 1 ]] && printf '   %s\n' "$1" >&2; }
+
+PANEL=0
+if [[ "$__HAVE_TERM" -eq 1 && "$QUIET" -eq 0 ]] && { [ -t 2 ] || [ -n "${FORCE_COLOR:-}" ]; }; then PANEL=1; fi
+__PANEL_OPEN=0
+popen() {
+  [[ "$PANEL" -eq 1 && "$__PANEL_OPEN" -eq 0 ]] || return 0
+  { term_panel_open supply-chain "integrity-audit"; term_panel_vert; } >&2; __PANEL_OPEN=1
+}
+section() {
+  [[ "$QUIET" -eq 1 ]] && return
+  if [[ "$PANEL" -eq 1 ]]; then
+    popen
+    { term_panel_vert
+      if [[ -n "${2:-}" ]]; then term_panel_line "$(term_color cyan "$1")  $(term_color dim "$2")"
+      else term_panel_line "$(term_color cyan "$1")"; fi
+    } >&2
+  else printf '%s== %s ==%s %s\n' "$C_D" "$1" "$C_O" "${2:-}" >&2; fi
+}
+info() {
+  [[ "$QUIET" -eq 1 ]] && return
+  if [[ "$PANEL" -eq 1 ]]; then popen; term_panel_line "$(term_color dim "$1")" >&2
+  else printf '   %s\n' "$1" >&2; fi
+}
+vinfo() {
+  [[ "$VERBOSE" -eq 1 ]] || return 0
+  if [[ "$PANEL" -eq 1 ]]; then popen; term_panel_line "$(term_color dim "$1")" >&2
+  else printf '   %s\n' "$1" >&2; fi
+}
 
 HAS_JQ=0; command -v jq >/dev/null 2>&1 && HAS_JQ=1
 HAS_ZIZMOR=0; command -v zizmor >/dev/null 2>&1 && HAS_ZIZMOR=1
@@ -72,8 +107,12 @@ record() {
       --arg e "$entries" '{category:$c, source:$s, kind:$k, entries:($e|split("\n")|map(select(length>0)))}')
     REVIEW_JSON+=("$obj")
   fi
-  printf '   %s[review]%s %s %s: %s\n' "$C_Y" "$C_O" "$kind" "$source" \
-    "$(echo "$entries" | paste -sd',' - 2>/dev/null)" >&2
+  local flat_e; flat_e="$(echo "$entries" | paste -sd',' - 2>/dev/null)"
+  if [[ "$PANEL" -eq 1 ]]; then
+    popen; term_status_row warn "$kind  $source" "$flat_e" >&2
+  else
+    printf '   %s[review]%s %s %s: %s\n' "$C_Y" "$C_O" "$kind" "$source" "$flat_e" >&2
+  fi
 }
 
 json_key_entries() {  # file key -> newline-separated entry list (jq)
@@ -189,14 +228,33 @@ if [[ "$JSON" -eq 1 ]]; then
 fi
 
 if [[ "$REVIEW_COUNT" -eq 0 ]]; then
-  [[ "$QUIET" -eq 0 ]] && printf '%sClean: nothing flagged for review.%s\n' "$C_G" "$C_O" >&2
+  if [[ "$QUIET" -eq 0 ]]; then
+    if [[ "$PANEL" -eq 1 ]]; then
+      popen
+      { term_panel_vert
+        term_panel_close "review each ${TERM_DOT} rotate creds if unexplained" "$(term_health healthy "clean")"
+      } >&2
+    else
+      printf '%sClean: nothing flagged for review.%s\n' "$C_G" "$C_O" >&2
+    fi
+  fi
   exit "$EXIT_OK"
 fi
 if [[ "$QUIET" -eq 0 ]]; then
-  printf '%s%d item(s) flagged for review — confirm YOU added each.%s\n' "$C_Y" "$REVIEW_COUNT" "$C_O" >&2
-  cat >&2 <<'EOF'
+  if [[ "$PANEL" -eq 1 ]]; then
+    popen
+    { term_panel_vert
+      term_panel_line "$(term_color dim "not proof of compromise - if any entry is unexplained, treat as an incident:")"
+      term_panel_line "$(term_color dim "  1. isolate the machine   2. rotate every reachable credential   3. investigate")"
+      term_panel_vert
+      term_panel_close "confirm YOU added each" "$(term_health warning "$REVIEW_COUNT to review")"
+    } >&2
+  else
+    printf '%s%d item(s) flagged for review - confirm YOU added each.%s\n' "$C_Y" "$REVIEW_COUNT" "$C_O" >&2
+    cat >&2 <<'EOF'
    Not proof of compromise. If any entry is unexplained, treat as an incident:
      1. Isolate the machine.  2. Rotate every reachable credential.  3. Investigate.
 EOF
+  fi
 fi
 exit "$EXIT_REVIEW"

@@ -53,6 +53,25 @@ HAS_JQ=0; command -v jq >/dev/null 2>&1 && HAS_JQ=1
 HAS_SOCKET=0; command -v socket >/dev/null 2>&1 && HAS_SOCKET=1
 
 emit() { [[ "$QUIET" -eq 1 ]] && return; printf '%s\n' "$1" >&2; }
+
+# Terminal design system: framing on stderr (term_init 2); TSV/--json stays plain
+# on stdout. Full panel for a human at a TTY (or FORCE_COLOR); else legacy emit.
+__lib="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../_lib" 2>/dev/null && pwd || true)"
+if [ -n "${__lib:-}" ] && [ -f "$__lib/term.sh" ]; then . "$__lib/term.sh"; term_init 2; __HAVE_TERM=1
+else __HAVE_TERM=0; TERM_DOT="|"; fi
+PANEL=0
+if [[ "$__HAVE_TERM" -eq 1 && "$QUIET" -eq 0 ]] && { [ -t 2 ] || [ -n "${FORCE_COLOR:-}" ]; }; then PANEL=1; fi
+__PANEL_OPEN=0
+popen() {
+  [[ "$PANEL" -eq 1 && "$__PANEL_OPEN" -eq 0 ]] || return 0
+  { term_panel_open supply-chain "preinstall ${TERM_DOT} ${ECOSYSTEM}"; term_panel_vert; } >&2; __PANEL_OPEN=1
+}
+prow() {  # mark legacy-prefix text
+  if [[ "$PANEL" -eq 1 ]]; then popen; term_status_row "$1" "$3" >&2
+  else emit "  $2 $3"; fi
+}
+pinfo() { [[ "$PANEL" -eq 1 ]] && { popen; term_panel_line "$(term_color dim "$1")" >&2; } || emit "$1"; }
+
 now_epoch=$(date +%s); inside=0; unavailable=0
 JSON_OBJS=()
 
@@ -83,11 +102,11 @@ result() {  # name version published
     '{ecosystem:$e, name:$n, version:($v|select(length>0)), published:($p|select(length>0)), age_days:(if $d<0 then null else $d end), inside_cooldown:$ic}')")
   # human framing → stderr
   if [[ "$ic" == "true" ]]; then
-    emit "  [INSIDE COOLDOWN] ${name}@${version} — ${days}d ago (< ${COOLDOWN_DAYS}d). Hold off."
+    prow bad "[INSIDE COOLDOWN]" "${name}@${version} - ${days}d ago (< ${COOLDOWN_DAYS}d). Hold off."
   elif [[ "$days" -ge 0 ]]; then
-    emit "  [ok] ${name}@${version} — ${days}d ago (>= ${COOLDOWN_DAYS}d)."
+    prow ok "[ok]" "${name}@${version} - ${days}d ago (>= ${COOLDOWN_DAYS}d)."
   else
-    emit "  [?] ${name} — version/publish time not found or registry unreachable."
+    prow unknown "[?]" "${name} - version/publish time not found or registry unreachable."
   fi
 }
 
@@ -145,7 +164,7 @@ check_go() {  # proxy.golang.org/<module>/@v/<version>.info  (or /@latest)
   result "$mod" "$(jq -r '.Version // empty' <<<"$json")" "$(jq -r '.Time // empty' <<<"$json")"
 }
 
-emit "=== Pre-install check (${ECOSYSTEM}, cooldown ${COOLDOWN_DAYS}d) ==="
+if [[ "$PANEL" -eq 1 ]]; then popen; else emit "=== Pre-install check (${ECOSYSTEM}, cooldown ${COOLDOWN_DAYS}d) ==="; fi
 for spec in "${PKGS[@]}"; do
   case "$ECOSYSTEM" in
     npm) check_npm "$spec" ;; pypi) check_pypi "$spec" ;;
@@ -160,12 +179,19 @@ if [[ "$JSON" -eq 1 ]]; then
 fi
 
 if [[ "$QUIET" -eq 0 ]]; then
+  [[ "$PANEL" -eq 1 ]] && term_panel_vert >&2 || emit ""
   if [[ "$HAS_SOCKET" -eq 1 ]]; then
-    emit ""; emit "Behavioural verdict:"
-    for spec in "${PKGS[@]}"; do n="${spec%@*}"; n="${n%==*}"; emit "  socket package score ${ECOSYSTEM} ${n}"; done
+    pinfo "behavioural verdict:"
+    for spec in "${PKGS[@]}"; do n="${spec%@*}"; n="${n%==*}"; pinfo "  socket package score ${ECOSYSTEM} ${n}"; done
   else
-    emit ""; emit "Behavioural scan (free):  npm install -g socket   # then: socket package score ${ECOSYSTEM} <pkg>"
-    emit "Or depscore MCP (no key):  claude mcp add --transport http socket-mcp https://mcp.socket.dev/"
+    pinfo "behavioural scan (free):  npm install -g socket   # then: socket package score ${ECOSYSTEM} <pkg>"
+    pinfo "or depscore MCP (no key):  claude mcp add --transport http socket-mcp https://mcp.socket.dev/"
+  fi
+  if [[ "$PANEL" -eq 1 && "$__PANEL_OPEN" -eq 1 ]]; then
+    ph_state="healthy"; ph_text="outside cooldown"
+    [[ "$unavailable" -eq 1 ]] && { ph_state="warning"; ph_text="registry unavailable"; }
+    [[ "$inside" -eq 1 ]] && { ph_state="warning"; ph_text="inside cooldown"; }
+    { term_panel_vert; term_panel_close "hold new releases ${TERM_DOT} --json for data" "$(term_health "$ph_state" "$ph_text")"; } >&2
   fi
 fi
 

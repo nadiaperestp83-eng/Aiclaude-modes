@@ -50,10 +50,36 @@ while [[ $# -gt 0 ]]; do
 done
 
 HAS_JQ=0; command -v jq >/dev/null 2>&1 && HAS_JQ=1
-if [[ -t 2 && -z "${NO_COLOR:-}" ]]; then C_Y=$'\033[33m'; C_G=$'\033[32m'; C_D=$'\033[2m'; C_R=$'\033[31m'; C_O=$'\033[0m'
+
+# Terminal design system: framing on stderr (term_init 2); the inventory/--json
+# data product stays plain on stdout. Full panel for a human at a TTY (or
+# FORCE_COLOR); piped/quiet keeps the legacy "== section ==" framing.
+__lib="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../_lib" 2>/dev/null && pwd || true)"
+if [ -n "${__lib:-}" ] && [ -f "$__lib/term.sh" ]; then . "$__lib/term.sh"; term_init 2; __HAVE_TERM=1
+else __HAVE_TERM=0; TERM_DOT="|"; fi
+if [[ "$__HAVE_TERM" -eq 1 ]]; then
+  C_Y="$TERM_C_YELLOW"; C_G="$TERM_C_GREEN"; C_D="$TERM_C_DIM"; C_R="$TERM_C_RED"; C_O="$TERM_C_OFF"
+elif [[ -t 2 && -z "${NO_COLOR:-}" ]]; then C_Y=$'\033[33m'; C_G=$'\033[32m'; C_D=$'\033[2m'; C_R=$'\033[31m'; C_O=$'\033[0m'
 else C_Y=""; C_G=""; C_D=""; C_R=""; C_O=""; fi
-section(){ [[ "$QUIET" -eq 1 ]] || printf '%s== %s ==%s %s\n' "$C_D" "$1" "$C_O" "${2:-}" >&2; }
-info(){ [[ "$QUIET" -eq 1 ]] || printf '   %s\n' "$1" >&2; }
+PANEL=0
+if [[ "$__HAVE_TERM" -eq 1 && "$QUIET" -eq 0 ]] && { [ -t 2 ] || [ -n "${FORCE_COLOR:-}" ]; }; then PANEL=1; fi
+__PANEL_OPEN=0
+popen(){ [[ "$PANEL" -eq 1 && "$__PANEL_OPEN" -eq 0 ]] || return 0; { term_panel_open supply-chain "scan-extensions"; term_panel_vert; } >&2; __PANEL_OPEN=1; }
+section(){
+  [[ "$QUIET" -eq 1 ]] && return
+  if [[ "$PANEL" -eq 1 ]]; then
+    popen
+    { term_panel_vert
+      if [[ -n "${2:-}" ]]; then term_panel_line "$(term_color cyan "$1")  $(term_color dim "$2")"
+      else term_panel_line "$(term_color cyan "$1")"; fi
+    } >&2
+  else printf '%s== %s ==%s %s\n' "$C_D" "$1" "$C_O" "${2:-}" >&2; fi
+}
+info(){
+  [[ "$QUIET" -eq 1 ]] && return
+  if [[ "$PANEL" -eq 1 ]]; then popen; term_panel_line "$(term_color dim "$1")" >&2
+  else printf '   %s\n' "$1" >&2; fi
+}
 
 # ── --deep: auto-detect the engine; recommend (don't require) if absent ────
 # Lean by default — guarddog+semgrep are NOT kept on the machine. If --deep is asked
@@ -99,7 +125,8 @@ for base in "${EXT_DIRS[@]}"; do
       gout=$(PYTHONUTF8=1 guarddog npm scan "$ext" --exit-non-zero-on-finding 2>/dev/null); grc=$?
       if [[ $grc -ne 0 ]] && echo "$gout" | grep -qiE 'potentially malicious|source code matches'; then
         FINDINGS=$((FINDINGS+1))
-        printf '   %s[FINDING]%s %s\n' "$C_R" "$C_O" "$id" >&2
+        if [[ "$PANEL" -eq 1 ]]; then popen; term_status_row bad "$id" "behavioural finding" >&2
+        else printf '   %s[FINDING]%s %s\n' "$C_R" "$C_O" "$id" >&2; fi
         echo "$gout" | grep -iE 'found|matches|: This' | head -5 | sed 's/^/        /' >&2
         [[ "$HAS_JQ" -eq 1 ]] && FIND_JSON+=("$(jq -cn --arg i "$id" --arg d "$(echo "$gout" | tr '\n' ' ' | head -c 400)" '{id:$i,engine:"guarddog",detail:$d}')")
       fi
@@ -108,7 +135,7 @@ for base in "${EXT_DIRS[@]}"; do
 done
 
 # ── 2. Claude Code plugins: inventory + pinned-commit ──────────────────────
-section "Claude Code plugins" "pinned-commit inventory — verify each against its marketplace"
+section "Claude Code plugins" "pinned-commit inventory - verify each against its marketplace"
 PMETA="$HOME/.claude/plugins/installed_plugins.json"
 if [[ -f "$PMETA" && "$HAS_JQ" -eq 1 ]]; then
   while IFS= read -r line; do info "$line"; done < <(jq -r '.plugins | to_entries[] | .key as $n | .value[] | "\($n)  sha=\(.gitCommitSha[0:12])  scope=\(.scope)  updated=\(.lastUpdated)"' "$PMETA" 2>/dev/null)
@@ -135,20 +162,24 @@ if [[ "$JSON" -eq 1 ]]; then
     '{data:{inventory: map(select(length>0)), findings:$f}, meta:{deep:($deep==1), recency_days:$days, finding_count:($f|length), schema:"axiom.tool.scan-extensions.report/v1"}}'
 fi
 
+# vclose <state> <hotkeys> <text>  — panel footer, or a colored legacy verdict line.
+vclose() {  # state hotkeys legacy-color legacy-text
+  if [[ "$PANEL" -eq 1 ]]; then
+    popen; { term_panel_vert; term_panel_close "$2" "$(term_health "$1" "$4")"; } >&2
+  else printf '%s%s%s\n' "$3" "$4" "$C_O" >&2; fi
+}
 if [[ "$DEEP_OK" -eq 1 ]]; then
   if [[ "$FINDINGS" -eq 0 ]]; then
-    [[ "$QUIET" -eq 1 ]] || printf '%sBehavioural: GuardDog found no indicators in scanned extensions.%s\n' "$C_G" "$C_O" >&2
+    [[ "$QUIET" -eq 1 ]] || vclose healthy "exposure-check for known IOCs" "$C_G" "behavioural: GuardDog found no indicators"
     exit "$EXIT_OK"
   fi
-  [[ "$QUIET" -eq 1 ]] || printf '%s%d extension(s) with behavioural findings — inspect + treat as incident.%s\n' "$C_R" "$FINDINGS" "$C_O" >&2
+  [[ "$QUIET" -eq 1 ]] || vclose critical "inspect ${TERM_DOT} treat as incident" "$C_R" "$FINDINGS extension(s) with behavioural findings"
   exit "$EXIT_FINDING"
 fi
-if [[ "$DEEP_SKIPPED" -eq 1 ]]; then
-  [[ "$QUIET" -eq 1 ]] || {
-    printf '%sBEHAVIOURAL SCAN SKIPPED%s — guarddog/semgrep not installed (kept off by default).\n' "$C_Y" "$C_O" >&2
-    printf '   Ran inventory + recency only — this is NOT a clean behavioural verdict.\n' >&2
-    printf '   Enable on-demand:  uv tool install guarddog semgrep   (then re-run --deep)\n' >&2
-  }
+if [[ "$DEEP_SKIPPED" -eq 1 && "$QUIET" -eq 0 ]]; then
+  info "BEHAVIOURAL SCAN SKIPPED - guarddog/semgrep not installed (kept off by default)."
+  info "  ran inventory + recency only - this is NOT a clean behavioural verdict."
+  info "  enable on-demand:  uv tool install guarddog semgrep   (then re-run --deep)"
 fi
-[[ "$QUIET" -eq 1 ]] || printf '%sInventory done. %d item(s) changed within %dd — review those; run exposure-check.py for known-IOC matching.%s\n' "$C_D" "$RECENT" "$DAYS" "$C_O" >&2
+[[ "$QUIET" -eq 1 ]] || vclose healthy "exposure-check.py for known-IOC matching" "$C_D" "inventory done - $RECENT item(s) changed within ${DAYS}d, review those"
 exit "$EXIT_OK"

@@ -51,6 +51,44 @@ SKIP_DIRS = {".git", ".hg", ".svn", "node_modules", "worktrees", "__pycache__",
              "dist", "build", ".next", ".svelte-kit", ".astro", "vendor"}
 SCHEMA = "claude-mods.supply-chain-defense.config-drift-check/v1"
 
+
+class Term:
+    """Inline ANSI helper mirroring skills/_lib/term.sh (bash-only; per
+    TERMINAL-DESIGN.md §9 the Python port is inline). Honors FORCE_COLOR /
+    NO_COLOR / TERM_ASCII; ASCII-glyph fallback on a non-UTF stream encoding."""
+
+    _C = {"green": "\033[32m", "orange": "\033[38;5;208m", "red": "\033[31m",
+          "cyan": "\033[36m", "dim": "\033[2m", "off": "\033[0m"}
+    _G = {"ok": "✓", "bad": "✗", "warn": "▲", "unknown": "?"}
+    _A = {"ok": "+", "bad": "x", "warn": "!", "unknown": "?"}
+    _MC = {"ok": "green", "bad": "red", "warn": "orange", "unknown": "cyan"}
+
+    def __init__(self, stream): self.s = stream
+
+    @property
+    def ascii(self):
+        enc = (getattr(self.s, "encoding", "") or "").lower()
+        return (os.environ.get("TERM_ASCII") == "1" or os.environ.get("FLEET_ASCII") == "1"
+                or "utf" not in enc)
+
+    @property
+    def color(self):
+        if os.environ.get("FORCE_COLOR"):
+            return True
+        if (os.environ.get("NO_COLOR") is not None or os.environ.get("TERM") == "dumb"
+                or not getattr(self.s, "isatty", lambda: False)()):
+            return False
+        return True
+
+    def c(self, n, t):
+        return f"{self._C.get(n, '')}{t}{self._C['off']}" if self.color else t
+
+    def mark(self, st):
+        return self.c(self._MC.get(st, ""), (self._A if self.ascii else self._G).get(st, "."))
+
+
+TERM = Term(sys.stderr)
+
 # Build-config filename stems (any of these extensions). A loader appended here
 # runs at build time — the Stage-2 EtherHiding execution vector.
 CONFIG_STEMS = {
@@ -267,7 +305,7 @@ def collect_from_roots(roots):
     for root in roots:
         base = Path(root).expanduser()
         if not base.exists():
-            log(f"[warn] root does not exist: {base}")
+            log(TERM.c("orange", f"[warn] root does not exist: {base}"))
             continue
         if base.is_file():
             if is_config_file(base):
@@ -357,7 +395,7 @@ def main():
         for sev, kind, detail in scan_file(p):
             findings.append({"file": str(p), "severity": sev, "kind": kind, "detail": detail})
 
-    log(f"=== config-drift-check: {scanned} config file(s) scanned — {len(findings)} finding(s) ===")
+    log(TERM.c("cyan", f"=== config-drift-check: {scanned} config file(s) scanned - {len(findings)} finding(s) ==="))
 
     if args.json:
         print(json.dumps({

@@ -53,6 +53,44 @@ SKIP_DIRS = {".git", ".hg", ".svn", "worktrees", "__pycache__"}
 SEVERITIES = ("low", "medium", "high")
 SCHEMA = "claude-mods.supply-chain-defense.postinstall-audit/v1"
 
+
+class Term:
+    """Inline ANSI helper mirroring skills/_lib/term.sh (bash-only; per
+    TERMINAL-DESIGN.md §9 the Python port is inline). Honors FORCE_COLOR /
+    NO_COLOR / TERM_ASCII; ASCII-glyph fallback on a non-UTF stream encoding."""
+
+    _C = {"green": "\033[32m", "orange": "\033[38;5;208m", "red": "\033[31m",
+          "cyan": "\033[36m", "dim": "\033[2m", "off": "\033[0m"}
+    _G = {"ok": "✓", "bad": "✗", "warn": "▲", "unknown": "?"}
+    _A = {"ok": "+", "bad": "x", "warn": "!", "unknown": "?"}
+    _MC = {"ok": "green", "bad": "red", "warn": "orange", "unknown": "cyan"}
+
+    def __init__(self, stream): self.s = stream
+
+    @property
+    def ascii(self):
+        enc = (getattr(self.s, "encoding", "") or "").lower()
+        return (os.environ.get("TERM_ASCII") == "1" or os.environ.get("FLEET_ASCII") == "1"
+                or "utf" not in enc)
+
+    @property
+    def color(self):
+        if os.environ.get("FORCE_COLOR"):
+            return True
+        if (os.environ.get("NO_COLOR") is not None or os.environ.get("TERM") == "dumb"
+                or not getattr(self.s, "isatty", lambda: False)()):
+            return False
+        return True
+
+    def c(self, n, t):
+        return f"{self._C.get(n, '')}{t}{self._C['off']}" if self.color else t
+
+    def mark(self, st):
+        return self.c(self._MC.get(st, ""), (self._A if self.ascii else self._G).get(st, "."))
+
+
+TERM = Term(sys.stderr)
+
 # Lifecycle script verbs that download or spawn a shell — the Shai-Hulud entry.
 LIFECYCLE_KEYS = ("preinstall", "install", "postinstall", "prepare")
 LIFECYCLE_RED = re.compile(
@@ -123,7 +161,7 @@ def save_cache(path: Path, cache: dict):
         tmp.write_text(json.dumps(cache), encoding="utf-8")
         tmp.replace(path)
     except OSError as e:
-        log(f"[warn] could not save cache: {e}")
+        log(TERM.c("orange", f"[warn] could not save cache: {e}"))
 
 
 def iter_package_dirs(roots):
@@ -131,7 +169,7 @@ def iter_package_dirs(roots):
     for root in roots:
         base = Path(root).expanduser()
         if not base.exists():
-            log(f"[warn] root does not exist: {base}")
+            log(TERM.c("orange", f"[warn] root does not exist: {base}"))
             continue
         for dirpath, dirnames, _ in os.walk(base):
             dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
@@ -423,8 +461,8 @@ def main():
         save_cache(cache_path, cache)
 
     elapsed = round(time.time() - t0, 1)
-    log(f"=== postinstall-audit: {len(packages)} packages ({scanned} scanned, "
-        f"{cached} cache hits) in {elapsed}s — {len(findings)} flagged ===")
+    log(TERM.c("cyan", f"=== postinstall-audit: {len(packages)} packages ({scanned} scanned, "
+                       f"{cached} cache hits) in {elapsed}s - {len(findings)} flagged ==="))
 
     if args.json:
         print(json.dumps({"data": {"findings": findings,

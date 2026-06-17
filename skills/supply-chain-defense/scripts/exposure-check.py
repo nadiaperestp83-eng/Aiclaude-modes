@@ -34,6 +34,45 @@ DEFAULT_CATALOG = Path(__file__).resolve().parent.parent / "assets" / "exposure-
 def log(msg): print(msg, file=sys.stderr)
 
 
+class Term:
+    """Inline ANSI helper mirroring skills/_lib/term.sh (bash-only; per
+    TERMINAL-DESIGN.md §9 the Python port is inline). Lazy properties so it
+    reflects a later stream reconfigure(); honors FORCE_COLOR / NO_COLOR /
+    TERM_ASCII and falls back to ASCII glyphs on a non-UTF stream encoding."""
+
+    _C = {"green": "\033[32m", "yellow": "\033[33m", "orange": "\033[38;5;208m",
+          "red": "\033[31m", "cyan": "\033[36m", "dim": "\033[2m", "off": "\033[0m"}
+    _G = {"ok": "✓", "bad": "✗", "warn": "▲", "skip": "—", "unknown": "?"}
+    _A = {"ok": "+", "bad": "x", "warn": "!", "skip": "-", "unknown": "?"}
+    _MC = {"ok": "green", "bad": "red", "warn": "orange", "skip": "dim", "unknown": "yellow"}
+
+    def __init__(self, stream): self.s = stream
+
+    @property
+    def ascii(self):
+        enc = (getattr(self.s, "encoding", "") or "").lower()
+        return (os.environ.get("TERM_ASCII") == "1" or os.environ.get("FLEET_ASCII") == "1"
+                or "utf" not in enc)
+
+    @property
+    def color(self):
+        if os.environ.get("FORCE_COLOR"):
+            return True
+        if (os.environ.get("NO_COLOR") is not None or os.environ.get("TERM") == "dumb"
+                or not getattr(self.s, "isatty", lambda: False)()):
+            return False
+        return True
+
+    def c(self, n, t):
+        return f"{self._C.get(n, '')}{t}{self._C['off']}" if self.color else t
+
+    def mark(self, st):
+        return self.c(self._MC.get(st, ""), (self._A if self.ascii else self._G).get(st, "."))
+
+
+TERM = Term(sys.stderr)
+
+
 def die(msg, code) -> NoReturn:
     log(f"ERROR: {msg}")
     sys.exit(code)
@@ -82,7 +121,7 @@ def walk(roots):
     for root in roots:
         base = Path(root).expanduser()
         if not base.exists():
-            log(f"[warn] root does not exist: {base}")
+            log(TERM.c("orange", f"[warn] root does not exist: {base}"))
             continue
         for dirpath, dirnames, filenames in os.walk(base):
             dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
@@ -326,8 +365,8 @@ def main():
 
     roots = args.root or ["."]
     index, schema_ver, n_entries = load_catalog(Path(args.catalog).expanduser())
-    log(f"=== exposure-check: {n_entries} IOC entries (schema {schema_ver}), "
-        f"roots: {', '.join(roots)} ===")
+    log(TERM.c("cyan", f"=== exposure-check: {n_entries} IOC entries (schema {schema_ver}), "
+                       f"roots: {', '.join(roots)} ==="))
 
     components = collect(roots)
     if not args.no_extensions:
@@ -356,14 +395,14 @@ def main():
             for c in components:
                 print(f"{c['ecosystem']}\t{c['name']}\t{c['version']}\t{c['source']}")
         for f in findings:
-            log(f"  [EXPOSED] {f['ecosystem']} {f['name']}@{f['version']} "
+            log(f"  {TERM.mark('bad')} [EXPOSED] {f['ecosystem']} {f['name']}@{f['version']} "
                 f"({f['severity']}, {f['ioc_id']}) - {f['source']}")
 
     if findings:
-        log(f"EXPOSED: {len(findings)} installed package(s) match the IOC catalog. "
-            f"Treat as incident: isolate, rotate creds, remove the package.")
+        log(TERM.c("red", f"EXPOSED: {len(findings)} installed package(s) match the IOC catalog. "
+                          f"Treat as incident: isolate, rotate creds, remove the package."))
         sys.exit(EXIT_EXPOSED)
-    log(f"Clean: 0 of {len(components)} scanned components match the catalog.")
+    log(f"{TERM.mark('ok')} {TERM.c('green', f'Clean: 0 of {len(components)} scanned components match the catalog.')}")
     sys.exit(EXIT_OK)
 
 
