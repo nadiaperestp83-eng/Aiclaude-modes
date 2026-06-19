@@ -17,11 +17,11 @@ jobs:
           
       - name: Build
         run: |
-          mkdir -p temp_app
-          # Remove arquivos conflitantes
-          rm -rf temp_app/lib temp_app/pubspec.yaml
-          # Copia o código atual para a pasta temporária
-          cp -r . temp_app/
+          mkdir temp_app
+          # Usa rsync para copiar apenas o conteúdo da raiz para temp_app, 
+          # excluindo a pasta de destino e pastas de controle do git
+          rsync -av --exclude='temp_app' --exclude='.git' --exclude='.github' . temp_app/
+          
           cd temp_app
           flutter pub get
           flutter build apk --debug
