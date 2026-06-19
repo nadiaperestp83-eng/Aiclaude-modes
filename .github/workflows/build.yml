@@ -17,18 +17,17 @@ jobs:
           
       - name: Build
         run: |
-          # 1. Cria um projeto novo para ter a estrutura nativa (android/)
+          # 1. Cria o projeto Flutter padrão
           flutter create temp_app
           
-          # 2. Remove o código de exemplo (mantendo as pastas nativas)
-          rm -rf temp_app/lib/*
+          # 2. Apaga o main.dart padrão
+          rm temp_app/lib/main.dart
           
-          # 3. Copia TODO o conteúdo da raiz do seu repositório para a pasta temporária
-          # O 'rsync' é mais seguro e pula as pastas de controle (.git, .github e a própria temp_app)
-          # Isso garante que se você tiver uma pasta 'assets' ou 'android' customizada, ela será copiada
-          rsync -av --exclude='.git' --exclude='.github' --exclude='temp_app' . temp_app/
+          # 3. Copia o SEU main.dart para dentro da pasta lib do projeto criado
+          # Como o seu arquivo está em 'lib/main.dart' na raiz, copiamos ele
+          cp lib/main.dart temp_app/lib/main.dart
           
-          # 4. Compila
+          # 4. Compila usando o ambiente criado
           cd temp_app
           flutter pub get
           flutter build apk --debug
