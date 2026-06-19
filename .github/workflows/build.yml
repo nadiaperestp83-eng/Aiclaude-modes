@@ -14,21 +14,24 @@ jobs:
         with:
           channel: 'stable'
           
-      # Cria um projeto temporário e move seus arquivos para lá
+      # Cria o projeto temporário DENTRO da pasta raiz
       - name: Setup project structure
         run: |
-          mkdir ../temp_app
-          flutter create ../temp_app
-          rm -rf ../temp_app/lib ../temp_app/pubspec.yaml
-          cp -r . ../temp_app/
+          mkdir temp_app
+          flutter create temp_app
+          # Remove arquivos padrão para mover os seus
+          rm -rf temp_app/lib temp_app/pubspec.yaml
+          # Copia tudo da raiz para dentro da pasta temp_app
+          cp -r . temp_app/
           
       - name: Build APK
         run: |
-          cd ../temp_app
+          cd temp_app
           flutter pub get
           flutter build apk --release
           
+      # O path agora aponta para dentro da pasta raiz
       - uses: actions/upload-artifact@v4
         with:
           name: app-release
-          path: ../temp_app/build/app/outputs/flutter-apk/app-release.apk
+          path: temp_app/build/app/outputs/flutter-apk/app-release.apk
