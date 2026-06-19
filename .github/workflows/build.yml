@@ -17,18 +17,18 @@ jobs:
           
       - name: Build
         run: |
-          # 1. Cria um projeto completo e novo
+          # 1. Cria um projeto novo para ter a estrutura nativa (android/)
           flutter create temp_app
           
-          # 2. Apaga apenas o que veio de exemplo
+          # 2. Remove o código de exemplo (mantendo as pastas nativas)
           rm -rf temp_app/lib/*
           
-          # 3. Copia SEUS arquivos de código para dentro do projeto criado
-          # Usamos o caminho absoluto ou relativo correto
-          cp -r lib/* temp_app/lib/
-          cp pubspec.yaml temp_app/
+          # 3. Copia TODO o conteúdo da raiz do seu repositório para a pasta temporária
+          # O 'rsync' é mais seguro e pula as pastas de controle (.git, .github e a própria temp_app)
+          # Isso garante que se você tiver uma pasta 'assets' ou 'android' customizada, ela será copiada
+          rsync -av --exclude='.git' --exclude='.github' --exclude='temp_app' . temp_app/
           
-          # 4. Entra e compila
+          # 4. Compila
           cd temp_app
           flutter pub get
           flutter build apk --debug
